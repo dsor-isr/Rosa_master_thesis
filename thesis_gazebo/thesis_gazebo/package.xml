@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+ <name>thesis_gazebo</name>
+ <version>1.0.0</version>
+ <description>
+ TODO!
+ </description>
+
+ <license>GPLv3</license>
+
+ <author email="dsor.isr@gmail.com">DSOR GROUP</author>
+ <maintainer email="dsor.isr@gmail.com">#DSORTeam</maintainer>
+
+ <buildtool_depend>catkin</buildtool_depend>
+
+</package>

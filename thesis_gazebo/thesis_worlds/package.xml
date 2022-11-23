@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>thesis_worlds</name>
+  <version>1.0.0</version>
+  <description>The farol_worlds package</description>
+
+  
+  <maintainer email="daniel.garcia.domingos.rosa@tecnico.ulisboa.pt">Daniel Rosa</maintainer>
+
+  <author email="daniel.garcia.domingos.rosa@tecnico.ulisboa.pt">Daniel Rosa</author>
+  
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>gazebo_ros</exec_depend>
+
+  <export>
+    <gazebo_ros gazebo_media_path="${prefix}"
+                gazebo_model_path="${prefix}/models"/>
+  </export>
+</package>

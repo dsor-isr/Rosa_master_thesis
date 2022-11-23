@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>thesis_gazebo_bringup</name>
+  <version>1.0.0</version>
+  <description>Package used to launch the 3D simulation of the vehicles and the corresponding 3D world </description>
+
+  <maintainer email="daniel.garcia.domingos.rosa@tecnico.ulisboa.pt">Daniel Rosa</maintainer>
+  
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <export>
+  </export>
+</package>
