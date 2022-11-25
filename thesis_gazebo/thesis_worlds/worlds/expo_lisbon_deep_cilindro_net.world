@@ -80,7 +80,7 @@
     <include>
       <uri>model://fishing_net_cilindro</uri>
       <name>fishing net1</name>
-      <pose>0 -50 -50 0 0 0</pose> 
+      <pose>-60 30 -5 0 0 0</pose>
     </include>
 
     <plugin name="underwater_current_plugin" filename="libuuv_underwater_current_ros_plugin.so">

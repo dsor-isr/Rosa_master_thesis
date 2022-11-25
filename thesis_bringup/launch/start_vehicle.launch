@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <!-- Parameters and Arguments -->
-    <arg name="name"               default="mvector" />     <!-- Name of the vehicle being launched --> 
+    <arg name="name"               default="bluerov_heavy" />     <!-- Name of the vehicle being launched --> 
     <arg name="id"                 default="0" />                   <!-- Number of the vehicle -->
     <arg name="config_package"     default="thesis_bringup"/>  <!-- Name of the package where the configuration files are stored -->
     <arg name="folder"             default="vehicles" />            <!-- Name of the folder for the configuration files -->     

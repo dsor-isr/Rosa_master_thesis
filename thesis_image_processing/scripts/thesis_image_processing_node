@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+
+import thesis_image_processing_ros.ThesisImageProcessingNode
+
+if __name__ == '__main__':
+ thesis_image_processing_ros.ThesisImageProcessingNode.main()

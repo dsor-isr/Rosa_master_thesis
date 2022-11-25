@@ -1,0 +1,2 @@
+vehicle_stabilizer:
+  references: {'depth': 0.0, 'pitch': 'null', 'roll': 'null'}
