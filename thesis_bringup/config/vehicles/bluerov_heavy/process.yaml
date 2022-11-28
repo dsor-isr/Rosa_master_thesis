@@ -8,21 +8,11 @@ processes:
             - simulation:= false
             - addons:= false
             - navigation:= false
-            - controllers:= true
+            - controllers:= false
             - cooperative:= false
             - comms:= false
             - acoustic_data:= false
             - planning:= false 
-      dependencies:
-            []
-    
-    - name: 'simulation' # Set to true to use the simple simulation
-      launch_on_startup: false
-      delay_before_start: 1.0
-      cmd: 'roslaunch farol_bringup sim.launch'
-      args:
-            - dynamics:= true
-            - sensors:= true
       dependencies:
             []
     
@@ -61,7 +51,7 @@ processes:
             []
     
     - name: 'addons' # Set to true to use several addons like operation console and remote controller
-      launch_on_startup: true
+      launch_on_startup: true 
       delay_before_start: 4.0
       cmd: 'roslaunch farol_bringup addons.launch'
       args:
@@ -89,7 +79,7 @@ processes:
     
     - name: 'controllers' # Set to true to enable Dsor inner and outer loop controllers
       launch_on_startup: true
-      delay_before_start: 0.0
+      delay_before_start: 6.0
       cmd: 'roslaunch farol_bringup controls.launch'
       args:
             - static_thruster_allocation:= true
@@ -97,32 +87,6 @@ processes:
             - waypoint:= true
             - path_following:= true
             - vehicle_stabilizer:= true
-      dependencies:
-            []
-    
-    - name: 'cooperative' # Set to true to enable cooperative missions
-      launch_on_startup: false
-      delay_before_start: 7.0
-      cmd: 'roslaunch farol_bringup cooperative.launch'
-      args:
-            - cpf_control:=true
-            - cpf_wifi_receiver:=true
-            - cpf_wifi_broadcaster:=true
-      dependencies:
-            []
-    
-    - name: 'acomms' # Set to true to enable acoustic communications
-      launch_on_startup: true
-      delay_before_start: 8.0
-      cmd: 'roslaunch farol_bringup comms.launch'
-      args:
-            - dmac:= false
-            - data_serializer:= true
-            - pinger:= false
-            - replier:= false
-            - pos2simmodem:= false
-            - dmac2farol:= true
-            - gnss2state:= true
       dependencies:
             []
     
