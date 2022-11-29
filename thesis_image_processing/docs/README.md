@@ -1,1 +1,0 @@
-thesis_image_processing documentation

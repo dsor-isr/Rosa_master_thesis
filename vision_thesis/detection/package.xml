@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
- <name>thesis_image_processing</name>
+ <name>detection</name>
  <version>1.0.0</version>
  <description>
  ADD HERE A SMALL DESCRIPTION OF THE NODE'S OBJECTIVE
@@ -17,5 +17,7 @@
  <depend>std_msgs</depend> 
  <depend>rospy</depend>
  <depend>farol_msgs</depend>
+ <depend>cv_bridge</depend>
+ <depend>auv_msgs</depend>
 
 </package>

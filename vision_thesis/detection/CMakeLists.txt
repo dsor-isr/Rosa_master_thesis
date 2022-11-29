@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(thesis_image_processing)
+project(detection)
 
 find_package(catkin 
   # ROS components
@@ -7,6 +7,8 @@ find_package(catkin
   std_msgs
   farol_msgs
   rospy
+  cv_bridge
+  auv_msgs
 )
 
 catkin_python_setup()

@@ -1,0 +1,396 @@
+## --------------------------- ## 
+#  farol_addons                #
+## --------------------------- ## 
+addons/console_path_parser:
+    node_frequency: 5
+    topics:
+        subscribers: 
+            Mission_String: "/bluerov_heavy0/addons/Mission_String"
+            state: "/bluerov_heavy0/nav/filter/state"
+            flag: "/bluerov_heavy0/Flag"
+        publishers:
+            Path_Section: "/bluerov_heavy0/addons/path_section"
+            Formation: "/bluerov_heavy0/addons/formation"
+            biased_formation: "/bluerov_heavy0/addons/biased_formation"
+            WPRef: "/bluerov_heavy0/addons/WPRef"
+            DepthRef: "/bluerov_heavy0/ref/depth"
+            AltRef: "/bluerov_heavy0/ref/altitude"
+            FullMission: "/bluerov_heavy0/addons/full_mission"
+        services:
+            reset_path: "/bluerov_heavy0/ResetPath"
+            arc2d_path: "/bluerov_heavy0/SpawnArc2DPath"
+            line_path: "/bluerov_heavy0/SpawnLinePath"
+            pf_start: "/bluerov_heavy0/PFStart"
+            pf_stop: "/bluerov_heavy0/PFStop"
+            set_speed: "/bluerov_heavy0/SetConstVdVehicle"
+
+addons/console_server:
+    PORT: 7080
+    topics:
+      services:
+          wp_standard: "/bluerov_heavy0/controls/send_wp_standard"
+          wp_loose: "/bluerov_heavy0/controls/send_wp_loose"
+          wp_heading: "/bluerov_heavy0/controls/send_wp_heading"
+      console:
+          waypoint: "wp_standard"
+    
+addons/aggregator:
+    pub_rate: 2.0
+
+addons/remote_controller:
+    node_frequency: 10 #Hz
+    topics:
+        publishers:
+            # Linear velocity inner-loops
+            surge: "/bluerov_heavy0/ref/surge"
+            sway: "/bluerov_heavy0/ref/sway"
+            heave: "/bluerov_heavy0/ref/heave"
+
+            # Angular speed references
+            yaw_rate: "/bluerov_heavy0/ref/yaw_rate"
+
+            # Orientation references
+            yaw: "/bluerov_heavy0/ref/yaw"
+
+            # Depth references
+            depth: "/bluerov_heavy0/ref/depth"
+
+        subscribers:
+            state: "/bluerov_heavy0/nav/filter/state"
+
+## --------------------------- ## 
+#  farol_sim                   #
+## --------------------------- ## 
+## dynamic model
+sim/auv_sim:
+    frame_id: "bluerov_heavy0"
+    node_frequency: 100 # (Hz)
+    topics:
+        subscribers:
+            thrusters: "/bluerov_heavy0/thrusters/rpm_command"
+        publishers:
+            odometry: "/bluerov_heavy0/sim/dynamics/position"
+        services:
+            start_pause: "/bluerov_heavy0/sim/pause_start"
+
+## sensor simulator
+sim/sensors:
+    node_frequency: 10
+    topics:
+        subscribers: 
+            position: "/bluerov_heavy0/sim/dynamics/position"
+        publishers: 
+            position: "/bluerov_heavy0/measurement/position"
+            velocity: "/bluerov_heavy0/measurement/velocity"
+            orientation: "/bluerov_heavy0/measurement/orientation"
+            gnss: "/bluerov_heavy0/sensors/gnss"
+            range: "/bluerov_heavy0/sensors/range"
+            state: "/bluerov_heavy0/sim/model/state"
+    services:
+      enable_dvl: "/bluerov_heavy0/sim/enable_dvl"
+      enable_altimeter: "/bluerov_heavy0/sim/enable_altimeter"
+
+## --------------------------- ## 
+#  farol_nav                   #
+## --------------------------- ## 
+nav/filter:
+    node_frequency: 10      # ROS node rate
+    topics:
+        subscribers:
+            reset: "/bluerov_heavy0/nav/filter/reset"
+            position: "/bluerov_heavy0/measurement/position"
+            velocity: "/bluerov_heavy0/measurement/velocity"
+            orientation: "/bluerov_heavy0/measurement/orientation"
+        publishers:
+            state: "/bluerov_heavy0/nav/filter/state"
+            currents: "/bluerov_heavy0/nav/filter/currents"
+    topics_dr:
+       velocity: "/bluerov_heavy0/measurement/velocity"
+       orientation: "/bluerov_heavy0/measurement/orientation"
+       true_state: "/bluerov_heavy0/nav/filter/state"
+       flag: "/bluerov_heavy0/Flag"
+       dead_reckoning: "/bluerov_heavy0/nav/filter/state_dr"
+       dead_reckoning_console: "/bluerov_heavy0/State_dr"
+    services_dr:
+       reset_filter_dr: "/bluerov_heavy0/nav/reset_filter_dr"
+
+nav/gnss2utm:
+    node_frequency: 10
+    topics:
+        subscribers:
+            gnss: "/bluerov_heavy0/sensors/gnss" 
+        publishers: 
+            position: "/bluerov_heavy0/measurement/position"
+            ground_truth: "/bluerov_heavy0/State_gt"
+    services:
+        enable_gps: "/bluerov_heavy0/sensor/enable_gps"
+
+nav/gnss2utmoutlier:
+    node_frequency: 10
+    topics:
+        subscribers:
+            gnss: "/bluerov_heavy0/sensors/gnss" 
+        publishers: 
+            position: "/bluerov_heavy0/measurement/position"
+    services:
+        enable_gps_outlier: "/bluerov_heavy0/sensor/fake/enable_gps_outlier"
+        enable_usbl_delay: "/bluerov_heavy0/sensor/fake/enable_usbl_delay"
+
+nav/usbl2pos:
+    node_frequency: 10
+    topics:
+        subscribers:
+            usbl_fix: "/bluerov_heavy0/sensors/usbl_fix"
+            acomms_state: "/bluerov_heavy0/acomms/nav/filter/state"
+            state: "/bluerov_heavy0/nav/filter/state"
+        publishers:
+            position: "/bluerov_heavy0/measurement/position"
+            console_state_usbl_estimation: "/bluerov_heavy0/State_usbl_est"
+            state_usbl_estimation: "/bluerov_heavy0/nav/filter/usbl_est"
+
+nav/auvstate2mstate:
+    node_frequency: 10
+    topics:
+        subscribers:
+            state: "/bluerov_heavy0/nav/filter/state"
+            gnss: "/bluerov_heavy0/sensors/gnss"
+            inside_pressure_filter: "/bluerov_heavy0/drivers/inside_pressure_filter/data"
+            inside_pressure_rate: "/bluerov_heavy0/drivers/inside_pressure_filter/data_dot"
+        publishers:  
+            console_state: "/bluerov_heavy0/State"
+
+## --------------------------- ## 
+#  farol_control               #
+## --------------------------- ## 
+controls/static_thruster_allocation:
+    topics:
+        subscribers:
+            thrust_body_request: "/bluerov_heavy0/thrust_body_request"
+        publishers:
+            thrusters: "/bluerov_heavy0/thrusters/rpm_command"
+
+controls/inner_loops_pid:
+    node_frequency: 10.0 
+    topics:
+        subscribers:
+            yaw: "/bluerov_heavy0/ref/yaw"
+            pitch: "/bluerov_heavy0/ref/pitch"
+            roll: "/bluerov_heavy0/ref/roll"
+            yaw_rate: "/bluerov_heavy0/ref/yaw_rate"
+            pich_rate: "/bluerov_heavy0/ref/pitch_rate"
+            roll_rate: "/bluerov_heavy0/ref/roll_rate"
+            surge: "/bluerov_heavy0/ref/surge"
+            sway: "/bluerov_heavy0/ref/sway"
+            heave: "/bluerov_heavy0/ref/heave"
+            depth: "/bluerov_heavy0/ref/depth"
+            altitude: "/bluerov_heavy0/ref/altitude"
+            altitude_safety: "/bluerov_heavy0/ref/altitude_safety"
+            depth_safety: "/bluerov_heavy0/ref/depth_safety"
+            state: "/bluerov_heavy0/nav/filter/state"
+            force_bypass: "/bluerov_heavy0/force_bypass"
+        publishers:
+            thrust_body_request: "/bluerov_heavy0/thrust_body_request"
+        services: 
+            change_ff_gains: "/bluerov_heavy0/inner_forces/change_ff_gains"
+            change_inner_gains: "/bluerov_heavy0/inner_forces/change_inner_gains"
+            change_inner_limits: "/bluerov_heavy0/inner_forces/change_inner_limits"
+
+controls/waypoint:
+    node_frequency: 10.0
+    topics:
+        publishers:
+            yaw_ref: "/bluerov_heavy0/ref/yaw"
+            yaw_rate_ref: "/bluerov_heavy0/ref/yaw_rate"
+            u_ref: "/bluerov_heavy0/ref/surge"
+            v_ref: "/bluerov_heavy0/ref/sway"
+            flag: "/bluerov_heavy0/Flag"
+        subscribers:
+            flag: "/bluerov_heavy0/Flag"
+            state: "/bluerov_heavy0/nav/filter/state"
+        services:
+            wp_standard: "/bluerov_heavy0/controls/send_wp_standard"
+            wp_loose: "/bluerov_heavy0/controls/send_wp_loose"
+            wp_heading: "/bluerov_heavy0/controls/send_wp_heading"
+
+controls/path_following:
+    node_frequency: 10.0
+    flag: "/bluerov_heavy0/Flag"
+    topics:
+        subscribers:
+            state: "/bluerov_heavy0/nav/filter/state"
+            path: "/bluerov_heavy0/PathData"
+            vc: "/bluerov_heavy0/PF/vc"
+        publishers:
+            surge: "/bluerov_heavy0/ref/surge"
+            sway: "/bluerov_heavy0/ref/sway"
+            heave: "/bluerov_heavy0/ref/heave"
+            roll: "/bluerov_heavy0/ref/roll"
+            roll_rate: "/bluerov_heavy0/ref/roll_rate"
+            pitch: "/bluerov_heavy0/ref/pitch"
+            pitch_rate: "/bluerov_heavy0/ref/pitch_rate"
+            yaw: "/bluerov_heavy0/ref/yaw"
+            yaw_rate: "/bluerov_heavy0/ref/yaw_rate"
+    
+            # Publishers for the virtual target
+            rabbit: "/bluerov_heavy0/Gamma"
+            
+            # Observer for the currents
+            observer:
+                x: "/bluerov_heavy0/current/x"
+                y: "/bluerov_heavy0/current/y"
+
+            # Publish info for plots
+            pfollowing_debug: "/bluerov_heavy0/pfollowing/debug"
+        
+        services:
+            # Service names to start and stop the path following algorithm
+            start_pf: "/bluerov_heavy0/PFStart"
+            stop_pf: "/bluerov_heavy0/PFStop"
+            updates_gains_pf: "/bluerov_heavy0/PFUpdateGains"
+            reset_vt_pf: "/bluerov_heavy0/ResetVT"
+    
+            # Service names to switch the path following algorithm
+            relative_heading_pf: "/bluerov_heavy0/PFSetRelativeHeading"
+            marcelo_pf: "/bluerov_heavy0/PFSetMarcelo"
+            aguiar_pf: "/bluerov_heavy0/PFSetAguiar"
+            brevik_pf: "/bluerov_heavy0/PFSetBrevik"
+            fossen_pf: "/bluerov_heavy0/PFSetFossen"
+            romulo_pf: "/bluerov_heavy0/PFSetRomulo"
+            lapierre_pf: "/bluerov_heavy0/PFSetLapierre"
+            pramod_pf: "/bluerov_heavy0/PFSetPramod"
+            samson_pf: "/bluerov_heavy0/PFSetSamson"
+            # Service names related to the path
+            reset_path: "/bluerov_heavy0/ResetPath"
+            set_path_mode: "/bluerov_heavy0/SetMode"
+            # Service names related to the waypoint
+            wp_standard: "/bluerov_heavy0/controls/send_wp_standard"
+
+controls/vehicle_stabilizer:
+  topics:
+    publishers:
+      surge: "/bluerov_heavy0/ref/surge"
+      sway: "/bluerov_heavy0/ref/heave"
+      heave: "/bluerov_heavy0/ref/heave"
+
+      roll_rate: "/bluerov_heavy0/ref/roll_rate"
+      pitch_rate: "/bluerov_heavy0/ref/pitch_rate"
+      yaw_rate: "/bluerov_heavy0/ref/yaw_rate"
+
+      roll: "/bluerov_heavy0/ref/roll"
+      pitch: "/bluerov_heavy0/ref/pitch"
+      yaw: "/bluerov_heavy0/ref/yaw"
+
+      depth: "/bluerov_heavy0/ref/depth"
+      altitude: "/bluerov_heavy0/ref/altitude"
+   
+### Cooperative control law
+cooperative/cpf_control:
+    node_frequency: 10
+    topics:
+        publishers: 
+            vc: "/bluerov_heavy0/PF/vc"
+            cpf_server_input: "/bluerov_heavy0/Internal/Gamma"
+        subscribers:
+            internal_gamma: "/bluerov_heavy0/PathData"
+            external_gamma: "/bluerov_heavy0/External/Gamma"
+        services:
+        # Service names to start and stop the path following algorithm
+            start_cpf: "/bluerov_heavy0/CPFStart"
+            stop_cpf: "/bluerov_heavy0/CPFStop"
+            change_topology: "/bluerov_heavy0/CPFChangeTopology"
+
+cooperative/cpf_wifi_server:
+    broadcast_port: 2808
+    node_frequency: 10
+    topics:
+      subscribers:
+        internal_gamma: "/bluerov_heavy0/Internal/Gamma"
+      publishers:
+        cpf_gamma: "/bluerov_heavy0/External/Gamma"
+        
+cooperative/cpf_wifi_client:
+    broadcast_port: 2808
+    node_frequency: 10
+    topics:
+      subscribers:
+        internal_gamma: "/bluerov_heavy0/Internal/Gamma"
+      publishers:
+        cpf_gamma: "/bluerov_heavy0/External/Gamma"
+
+## --------------------------- ## 
+#  farol_planning              #
+## --------------------------- ##
+planning/dsor_paths:
+    node_frequency: 10.0
+    frame_id: "Path_frame"
+    topics:
+        subscribers:
+            gamma: "/bluerov_heavy0/Gamma"
+            vehicle_state: "/bluerov_heavy0/nav/filter/state"
+        publishers:
+            path_data: "/bluerov_heavy0/PathData"
+            virtual_target_state: "/bluerov_heavy0/Virtual/State"
+        # Services for constructing a path
+        services:
+            reset_path: "/bluerov_heavy0/ResetPath"
+            set_mode: "/bluerov_heavy0/SetMode"
+            arc2d_path: "/bluerov_heavy0/SpawnArc2DPath"
+            bernoulli_path: "/bluerov_heavy0/SpawnBernoulliPath"
+            circle2d_path: "/bluerov_heavy0/SpawnCircle2DPath"
+            line_path: "/bluerov_heavy0/SpawnLinePath"
+            speed:
+                const_rabbit_speed: "/bluerov_heavy0/SetConstVdRabbit"
+                const_vehicle_speed: "/bluerov_heavy0/SetConstVdVehicle"
+
+## --------------------------- ## 
+#  farol_comms                #
+## --------------------------- ## 
+acomms/pinger:
+    topics:
+        publishers:
+            modem_send: "/bluerov_heavy0/acomms/modem/send"
+            meas_usbl_fix: "/bluerov_heavy0/sensors/usbl_fix"
+            trigger_serialization: "/bluerov_heavy0/acomms/scheme/trigger_serialization"
+            deserialize: "/bluerov_heavy0/acomms/scheme/payload_to_deserialize"
+        subscribers:
+            enable: "/bluerov_heavy0/acomms/scheme/enable"
+            modem_recv: "/bluerov_heavy0/acomms/modem/recv"
+            payload: "/bluerov_heavy0/acomms/serializer/payload_to_transmit"
+
+acomms/replier:
+    topics:
+        publishers:
+            modem_send: "/bluerov_heavy0/acomms/modem/send"
+            meas_usbl_fix: "/bluerov_heavy0/sensors/usbl_fix"
+            trigger_serialization: "/bluerov_heavy0/acomms/scheme/trigger_serialization"
+            deserialize: "/bluerov_heavy0/acomms/scheme/payload_to_deserialize"
+        subscribers:
+            modem_recv: "/bluerov_heavy0/acomms/modem/recv"
+            payload: "/bluerov_heavy0/acomms/serializer/payload_to_transmit"
+
+acomms/data_serializer:
+    topics:
+        publishers:
+            to_modem: "/bluerov_heavy0/acomms/serializer/payload_to_transmit"
+        subscribers:
+            from_modem: "/bluerov_heavy0/acomms/scheme/payload_to_deserialize"
+            trigger: "/bluerov_heavy0/acomms/scheme/trigger_serialization"
+        
+acomms/dmac2farol:
+    topics:
+        publishers:
+            farol_fix: "/bluerov_heavy0/sensors/usbl_fix"
+        subscribers:
+            dmac_fix: "/bluerov_heavy0/acomms/modem/measurement/usbl_fix"
+            state: "/bluerov_heavy0/nav/filter/state"
+
+acomms/gnss2state:
+    topics:
+        subscribers:
+            gnss: "/bluerov_heavy0/acomms/nav/filter/gnss"
+        publishers:
+            state: "/bluerov_heavy0/acomms/nav/filter/state"
+            utmzone: "/bluerov_heavy0/state/utmzone"
+
+acomms/pos2sim_modem:
+    topics/subscribers/position: "/bluerov_heavy0/sim/dynamics/position"

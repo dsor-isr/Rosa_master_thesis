@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-
- <node pkg="thesis_image_processing" type="thesis_image_processing_node" name="thesis_image_processingNode" respawn="false" output="screen">
-	<rosparam command="load" file="$(find thesis_image_processing)/config/config_thesis_image_processing.yaml"/>
-</node>
-
-</launch>
