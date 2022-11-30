@@ -1,1 +1,22 @@
 node_frequency: 10
+
+visualization: True
+score_threshold: 0.4
+Kp: [0.0003, 0.0002, 0, 0, 0, 0] # porpocional gains [sway, surge, heave, roll_rate, pitch_rate, yaw_rate]  
+Ki: [0.0000001, 0.00000001, 0, 0, 0, 0] # Integral gains [sway, surge, heave, roll_rate, pitch_rate, yaw_rate] 
+Kd: [0.00001, 0.00001, 0, 0, 0, 0] # Derivative gains [sway, surge, heave, roll_rate, pitch_rate, yaw_rate] 
+
+Velocity_Saturation : 0.3  #m/s
+
+# Acoording "https://github.com/uuvsimulator/uuv_simulator/blob/master/uuv_sensor_plugins/uuv_sensor_ros_plugins/src/UnderwaterCameraROSPlugin.cc"
+principalPoint: [384, 246]
+# Not sure about the values os focal Distance (mm)
+focalDistance: [407.065, 407.065]
+
+# FLAGS according medusa code - to define priority
+WP_flag: 4
+Mission_flag: 6
+Idle_flag: 0
+Vision_flag: 9
+
+Vehicle: /bluerov_heavy0
