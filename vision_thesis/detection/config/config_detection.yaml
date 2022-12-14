@@ -2,7 +2,7 @@ node_frequency: 10
 
 visualization: True
 score_threshold: 0.4
-Kp: [0.0003, 0.0002, 0, 0, 0, 0] # porpocional gains [sway, surge, heave, roll_rate, pitch_rate, yaw_rate]  
+Kp: [0.0003, 0.0002, 0.0002, 0.0002, 0.0002, 0.0002] # porpocional gains [sway, surge, heave, roll_rate, pitch_rate, yaw_rate]  
 Ki: [0.0000001, 0.00000001, 0, 0, 0, 0] # Integral gains [sway, surge, heave, roll_rate, pitch_rate, yaw_rate] 
 Kd: [0.00001, 0.00001, 0, 0, 0, 0] # Derivative gains [sway, surge, heave, roll_rate, pitch_rate, yaw_rate] 
 
@@ -13,6 +13,11 @@ principalPoint: [384, 246]
 # Not sure about the values os focal Distance (mm)
 focalDistance: [407.065, 407.065]
 
+#YOLO PATHS
+config_path: /home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/yolo3/starfish/1st_dataset0/yolov3_testing.cfg
+weights_path: /home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/yolo3/starfish/1st_dataset0/yolov3_starfish_last.weights
+classes_path: /home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/model_data/classes2.txt
+
 # FLAGS according medusa code - to define priority
 WP_flag: 4
 Mission_flag: 6
@@ -20,3 +25,6 @@ Idle_flag: 0
 Vision_flag: 9
 
 Vehicle: /bluerov_heavy0
+
+
+Rotation_B2C: [0, 0, -1, 0, 1, 0, 1, 0, 0] # rotation from Body frame to Camera frame

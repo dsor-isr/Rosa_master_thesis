@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!--open up the camera -->
+	<node name="visual_servoing_node" pkg="detection" type="ibvs_node" output="screen">
+        <rosparam command="load" file="$(find detection)/config/config_detection.yaml"/>
+    </node>
+
+</launch>

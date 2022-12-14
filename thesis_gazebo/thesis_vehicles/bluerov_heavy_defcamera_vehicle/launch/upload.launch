@@ -24,12 +24,12 @@
   <param name="robot_description"
     command="$(find xacro)/xacro '$(find bluerov_heavy_defcamera_vehicle)/robots/$(arg mode).xacro'
     debug:=$(arg debug) 
-    namespace:=bluerov
+    namespace:=$(arg namespace)
     inertial_reference_frame:=$(arg world_frame)" />
   
   <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
   <node name="urdf_spawner" pkg="uuv_descriptions" type="spawn_model" respawn="false" output="screen"
-          args="-urdf -x $(arg x) -y $(arg y) -z $(arg z) -R $(arg roll) -P $(arg pitch) -Y $(arg yaw) -model bluerov -param robot_description"/>
+          args="-urdf -x $(arg x) -y $(arg y) -z $(arg z) -R $(arg roll) -P $(arg pitch) -Y $(arg yaw) -model $(arg namespace) -param robot_description"/>
  
 
   <!-- A joint state publisher plugin already is started with the model, no need to use the default joint state publisher -->

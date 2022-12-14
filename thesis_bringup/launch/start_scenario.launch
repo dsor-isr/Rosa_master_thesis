@@ -6,8 +6,7 @@
     <arg name="world_frame"    default="world"/>
 
     <!-- Choose the world to launch (default is expo_lisbon)-->
-    <arg name="folder" default="expo_lisbon_worlds" />
-    <arg name="world"  default="expo_lisbon_deep_cilindro_net" />
+    <arg name="world"  default="expo_lisbon_deep_cilindro_net"/>
 
     <!-- Select the gazebo world -->
     <include file="$(find thesis_worlds)/launch/$(arg world).launch">

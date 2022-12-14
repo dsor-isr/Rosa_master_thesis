@@ -5,7 +5,7 @@
     <arg name="name"               default="bluerov_heavy"/> <!-- Name of the vehicle being launched -->   
     <arg name="config_package"     /> <!-- Name of the package where the configuration files are stored -->
     <arg name="folder"             default="vehicles" />  <!-- Name of the folder for the configuration files -->     
-    <arg name="namepsace"          default="true" />
+    <arg name="namespace"          default="true" />
     <arg name="vehicle_id"         default="0" />
     
     <!--Robot Spawn Location (in ENU inertial frame with orientation of ENU body frame) -->
@@ -22,7 +22,7 @@
     <!-- Workaround because we cannot nest $ signs -->
     <!-- From: https://answers.ros.org/question/35283/nested-substitution-args-in-launch-files/ -->
     <!-- The dangling parenthesis is weird but it required to work well with (at least) ROS Noetic -->
-    <arg name="model" value="$(arg name)"/>
+    <arg name="model" value="bluerov_heavy_defcamera"/>
     <arg name="model_description"       value="$(arg model)_vehicle)"/>
     <arg name="model_description_path"  value="(find $(arg model_description)" />
     <arg name="dollar" value="$" />

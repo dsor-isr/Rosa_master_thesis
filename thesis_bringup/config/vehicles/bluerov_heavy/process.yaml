@@ -8,7 +8,7 @@ processes:
             - simulation:= false
             - addons:= false
             - navigation:= false
-            - controllers:= false
+            - controllers:= true
             - cooperative:= false
             - comms:= false
             - acoustic_data:= false
@@ -18,8 +18,8 @@ processes:
     
     - name: 'gazebo_simulation' # Set to true to use the gazebo simulator
       launch_on_startup: true
-      delay_before_start: 1.0
-      cmd: 'roslaunch bluerov_heavy_defcamera_vehicle upload.launch'
+      delay_before_start: 0.0
+      cmd: 'roslaunch thesis_gazebo_bringup bluerov_heavy_defcamera_model.launch'
       args:
             - x:= 0.0
             - y:= 0.0
@@ -33,7 +33,7 @@ processes:
     
     - name: 'bags' # Set to true to automatically save all rostopics in rosbags
       launch_on_startup: false
-      delay_before_start: 2.0
+      delay_before_start: 1.0
       cmd: 'roslaunch farol_bringup bags.launch'
       args:
             - prefix:= gazebo
@@ -43,7 +43,7 @@ processes:
     
     - name: 'tfs'
       launch_on_startup: true
-      delay_before_start: 3.0
+      delay_before_start: 1.0
       cmd: 'roslaunch farol_bringup simulation_tfs.launch'
       args:
             - broadcast_tf:= true
@@ -52,7 +52,7 @@ processes:
     
     - name: 'addons' # Set to true to use several addons like operation console and remote controller
       launch_on_startup: true 
-      delay_before_start: 4.0
+      delay_before_start: 1.0
       cmd: 'roslaunch farol_bringup addons.launch'
       args:
             - console_path_parser:= true
@@ -66,7 +66,7 @@ processes:
     
     - name: 'navigation' # Set to true to use the Dsor Navigation Filter
       launch_on_startup: true
-      delay_before_start: 5.0
+      delay_before_start: 1.0
       cmd: 'roslaunch farol_bringup nav.launch'
       args:
             - filter:= true
@@ -79,7 +79,7 @@ processes:
     
     - name: 'controllers' # Set to true to enable Dsor inner and outer loop controllers
       launch_on_startup: true
-      delay_before_start: 6.0
+      delay_before_start: 1.0 
       cmd: 'roslaunch farol_bringup controls.launch'
       args:
             - static_thruster_allocation:= true
@@ -92,7 +92,7 @@ processes:
     
     - name: 'planning' # Set to true to execute default paths (lines, arc, bernoulli)
       launch_on_startup: true
-      delay_before_start: 9.0
+      delay_before_start: 1.0
       cmd: 'roslaunch farol_bringup planning.launch'
       args:
             - dsor_paths:= true
