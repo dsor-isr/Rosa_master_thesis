@@ -2,7 +2,6 @@
 
 import numpy as np
 import numpy.matlib
-from scipy.linalg import svdvals
 import rospy
 import time
 from numpy.linalg import norm

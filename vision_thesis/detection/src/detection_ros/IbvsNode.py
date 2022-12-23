@@ -12,6 +12,7 @@ import numpy as np
 from std_msgs.msg import Float64, String, Int8, Bool
 from uuv_sensor_ros_plugins_msgs.msg import DVL
 from auv_msgs.msg import NavigationStatus
+from gazebo_msgs.msg import ModelStates
 import math
 
 class IbvsNode():
@@ -50,6 +51,10 @@ class IbvsNode():
         self.dt = 1/self.node_frequency
         #for angular rate integration refs
         self.last_refs = np.array([0, 0, 0])
+        # Starfish position in Gazebo
+        self.starfish_position = np.array([0, 5, 5])
+        # Body position in Gazebo
+        self.position_body = np.array([0, 0, 0])
     
 
     """
@@ -61,6 +66,7 @@ class IbvsNode():
         rospy.Subscriber('/detection/object/detection_result', DetectionResults, self.extract_corners_callback, queue_size=1)
         #subscribe vehicle state
         rospy.Subscriber(self.vehicle + '/bluerov_heavy0/nav/filter/state', NavigationStatus, self.state_callback, queue_size=10)
+        rospy.Subscriber('/gazebo/model_states', ModelStates, self.gazebo_callback, queue_size=1)
 
     
     """
@@ -72,7 +78,6 @@ class IbvsNode():
         self.surge_pub = rospy.Publisher(self.vehicle + '/ref/surge', Float64, queue_size=5)
         self.sway_pub = rospy.Publisher(self.vehicle + '/ref/sway', Float64, queue_size=5)
         self.heave_pub = rospy.Publisher(self.vehicle + '/ref/heave', Float64, queue_size=5)
-        # DúVIDA AQUI -> EU QUERO O ROLL RATE E O PITCH RATE (INTEGRO À LA PATA??)
         self.roll_pub = rospy.Publisher(self.vehicle + '/ref/roll', Float64, queue_size=5)
         self.pitch_pub = rospy.Publisher(self.vehicle + '/ref/pitch', Float64, queue_size=5)
         self.yaw_rate_pub = rospy.Publisher(self.vehicle + '/ref/yaw_rate', Float64, queue_size=5)
@@ -107,8 +112,8 @@ class IbvsNode():
         u_img = self.opticalCenter[0]
         v_img = self.opticalCenter[1]
 
-        x = 100
-        y = 100
+        x = 200
+        y = 200
 
         desired_corners = np.array([u_img-int(x/2), v_img-int(y/2), u_img+int(x/2), v_img-int(y/2), u_img+int(x/2), v_img+int(y/2)])
         print("Desired_corners: " + str(desired_corners) + "\n")
@@ -118,8 +123,8 @@ class IbvsNode():
         self.boxArea = boxLocation[2]*boxLocation[3]
         return np.array([boxLocation[0], boxLocation[1], boxLocation[0]+boxLocation[2], boxLocation[1], boxLocation[0]+boxLocation[2], boxLocation[1]+boxLocation[3]])
 
-    def computeBodyVelocity(self, desired_corners, detected_corners):
-        desired_body_vel = self.visual_servoing.compute_body_vel(desired_corners, detected_corners, 5)
+    def computeBodyVelocity(self, desired_corners, detected_corners, Z):
+        desired_body_vel = self.visual_servoing.compute_body_vel(desired_corners, detected_corners, Z)
         surge = desired_body_vel[0]
         sway = desired_body_vel[1]
         heave = desired_body_vel[2]
@@ -133,8 +138,20 @@ class IbvsNode():
         self.heave_pub.publish(heave)
         self.roll_pub.publish(self.last_refs[0] + self.dt*roll_rate)
         self.pitch_pub.publish(self.last_refs[1] + self.dt*pitch_rate)
-        self.yaw_rate_pub.publish(self.last_refs[2] + self.dt*yaw_rate)
-        
+        self.yaw_rate_pub.publish(yaw_rate)
+
+    '''
+    Function only to test with the real Z - in the end this Z should be estimated
+    '''
+    def computeZManually(self, position_star_fish, position_body):
+        #C_Pq = R_I2C*(Pt_I - Pc_I)
+        pass
+
+    
+    def gazebo_callback(self, data):
+        aux = data.pose[3].position
+        self.position_body = np.array([aux.y, aux.x, -aux.z])
+        print(self.position_body)
 
     def state_callback(self, data):
         self.surge = data.body_velocity[0]
@@ -142,8 +159,11 @@ class IbvsNode():
         self.heave = data.body_velocity[2]
         self.roll = data.orientation[0]
         self.pitch = data.orientation[1]
+        self.yaw = data.orientation[2]
         self.yaw_rate = data.orientation_rate[2]
         self.last_refs = [self.roll, self.pitch, self.yaw_rate]
+        
+        
 
             
     def extract_corners_callback(self, data):
@@ -154,7 +174,7 @@ class IbvsNode():
         id_number = data.out_ids
         desired_corners = self.computeDesiredCorners(location_box)
         detected_corners = self.computeDetectedCorners(location_box) 
-        self.computeBodyVelocity(desired_corners, detected_corners)
+        self.computeBodyVelocity(desired_corners, detected_corners, 1.5)
 
 
 

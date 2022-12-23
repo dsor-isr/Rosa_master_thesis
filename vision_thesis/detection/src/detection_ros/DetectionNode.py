@@ -251,7 +251,7 @@
 #         # Frames without detection
 #         text = "Frames without detection: " + str(self.framesWithoutObject)
 #         cv2.putText(frame, text, (10, 210), self.font, 1, (0,0,0), 1)
-#         # Convert the frame to a img message
+#         # Convert the frame to a img message/home/dgd_rosa/.local/lib/python3.8/site-packages
 #         img_msg = self.bridge.cv2_to_imgmsg(frame, "bgr8")
 #         #Publish the frame
 #         self.detection_image_pub.publish(img_msg)
@@ -771,7 +771,7 @@ class DetectionNode:
 
             # display info of chosen box
             self.display_info_of_chosen_box(frame, self.predLoc[0], self.predLoc[1],
-                    self.width, self.height, out_boxes)
+                    self.width, self.height)
            
         if self.idObj is not None:
             # Object State

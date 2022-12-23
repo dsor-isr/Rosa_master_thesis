@@ -14,9 +14,9 @@ principalPoint: [384, 246]
 focalDistance: [407.065, 407.065]
 
 #YOLO PATHS
-config_path: /home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/yolo3/starfish/1st_dataset0/yolov3_testing.cfg
-weights_path: /home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/yolo3/starfish/1st_dataset0/yolov3_starfish_last.weights
-classes_path: /home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/model_data/classes2.txt
+config_path: /mnt/nfs/home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/yolo3/starfish/1st_dataset0/yolov3_testing.cfg
+weights_path: /mnt/nfs/home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/yolo3/starfish/1st_dataset0/yolov3_starfish_last.weights
+classes_path: /mnt/nfs/home/dgd_rosa/dsor/catkin_ws_thesis/src/vision_thesis/detection/src/detection_algorithms/model_data/classes2.txt
 
 # FLAGS according medusa code - to define priority
 WP_flag: 4
