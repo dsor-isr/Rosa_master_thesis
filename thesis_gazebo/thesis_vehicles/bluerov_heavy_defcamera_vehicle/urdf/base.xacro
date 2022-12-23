@@ -91,6 +91,8 @@
 
             <!-- Include the sensor modules -->
             <xacro:include filename="$(find bluerov_heavy_defcamera_vehicle)/urdf/sensors.xacro"/>
+            <!-- INCLUDE Multibeam Sonar -->
+            <xacro:include filename="/mnt/nfs/home/dgd_rosa/dsor/catkin_ws_thesis/src/multibeam_sonar/nps_uw_multibeam_sonar/urdf"\>
         </xacro:macro>
 
 </robot>

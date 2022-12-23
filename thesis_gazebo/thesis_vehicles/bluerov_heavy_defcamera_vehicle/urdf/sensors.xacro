@@ -51,5 +51,29 @@
     <origin xyz="0.25 0 0" rpy="0 0 0" mass="0"/>
   </xacro:default_camera>
 
+  <!-- Mount a Multibeam Sonar -->
+  <!-- Generates a link element with Blueview P900 physical & visual characteristics -->
+  <xacro:macro name="multibeam_blueview_p900_link" params="name scale">
+    <link name="${name}_link">
+      <inertial>
+        <mass value="4.35"/>
+        <pose xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="0.0360" ixy="0" ixz="0" iyy="0" iyz="0" izz="0.0360"/>
+      </inertial>
+      <visual>
+        <geometry>
+          <mesh filename="model://blueview_p900_nps_multibeam/meshes/p900.dae" scale="${scale}"/>
+        </geometry>
+        <pose xyz="0 0 0" rpy="0 0 0"/>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="model://blueview_p900_nps_multibeam/meshes/COLLISION-p900.dae" scale="${scale}"/>
+        </geometry>
+        <pose xyz="0 0 0" rpy="0 0 0"/>
+      </collision>
+    </link>
+  </xacro:macro>
+
 
 </robot>
