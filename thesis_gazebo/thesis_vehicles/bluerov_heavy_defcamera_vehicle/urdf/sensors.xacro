@@ -51,29 +51,22 @@
     <origin xyz="0.25 0 0" rpy="0 0 0" mass="0"/>
   </xacro:default_camera>
 
-  <!-- Mount a Multibeam Sonar -->
-  <!-- Generates a link element with Blueview P900 physical & visual characteristics -->
-  <xacro:macro name="multibeam_blueview_p900_link" params="name scale">
-    <link name="${name}_link">
-      <inertial>
-        <mass value="4.35"/>
-        <pose xyz="0 0 0" rpy="0 0 0"/>
-        <inertia ixx="0.0360" ixy="0" ixz="0" iyy="0" iyz="0" izz="0.0360"/>
-      </inertial>
-      <visual>
-        <geometry>
-          <mesh filename="model://blueview_p900_nps_multibeam/meshes/p900.dae" scale="${scale}"/>
-        </geometry>
-        <pose xyz="0 0 0" rpy="0 0 0"/>
-      </visual>
-      <collision>
-        <geometry>
-          <mesh filename="model://blueview_p900_nps_multibeam/meshes/COLLISION-p900.dae" scale="${scale}"/>
-        </geometry>
-        <pose xyz="0 0 0" rpy="0 0 0"/>
-      </collision>
-    </link>
-  </xacro:macro>
 
+  
+  <!-- <xacro:multibeam_blueview_p900_macro
+               params="name scale sonar_image_topic debug gpu_ray robot_name
+               sonar_image_raw_topic maxDistance raySkips plotScaler sensorGain writeLog
+               writeFrameInterval gaussian_noise_mean gaussian_noise_stddev fidelity
+               artificialVehicleVibration constantReflectivity reflectivityDatabaseFile
+               robot_link ray_visual *origin"> -->
+  <xacro:multibeam_blueview_p900_macro name="${namespace}" scale="1 1 1" gpu_ray="true" robot_name="bluerov_heavy"
+              sonar_image_topic="sonar_image_topic" sonar_image_raw_topic="sonar_image_raw_topic" debug="true" 
+              maxDistance="20" raySkips="10" plotScaler="1" sensorGain="0.02" writeLog="false" writeFrameInterval="5" 
+              artificialVehicleVibration="false" constantReflectivity="false" fidelity="500"
+              reflectivityDatabaseFile="multibeam_sonar/nps_uw_multibeam_sonar/worlds/variationalReflectivityDatabase.csv"
+              robot_link="${namespace}/base_link" ray_visual="true" gaussian_noise_mean="0.0" gaussian_noise_stddev="0.02">
+    <origin xyz="0 0 -0.25" rpy="0 0 0"/>
+  </xacro:multibeam_blueview_p900_macro>
+  
 
 </robot>
