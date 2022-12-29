@@ -4,9 +4,3 @@
 [submodule "farol_gazebo"]
 	path = farol_gazebo
 	url = git@github.com:dsor-isr/farol_gazebo.git
-[submodule "multibeam_sonar/nps_uw_multibeam_sonar"]
-	path = multibeam_sonar/nps_uw_multibeam_sonar
-	url = https://github.com/Field-Robotics-Lab/nps_uw_multibeam_sonar.git
-[submodule "multibeam_sonar/hydrographic_msgs"]
-	path = multibeam_sonar/hydrographic_msgs
-	url = https://github.com/apl-ocean-engineering/hydrographic_msgs.git
