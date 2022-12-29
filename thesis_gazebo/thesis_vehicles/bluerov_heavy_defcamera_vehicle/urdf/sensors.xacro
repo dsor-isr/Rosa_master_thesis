@@ -59,13 +59,13 @@
                writeFrameInterval gaussian_noise_mean gaussian_noise_stddev fidelity
                artificialVehicleVibration constantReflectivity reflectivityDatabaseFile
                robot_link ray_visual *origin"> -->
-  <xacro:multibeam_blueview_p900_macro name="${namespace}" scale="1 1 1" gpu_ray="true" robot_name="bluerov_heavy"
+  <xacro:multibeam_blueview_p900_macro name="${namespace}" scale="0.5 0.5 0.5" gpu_ray="false" robot_name="bluerov_heavy"
               sonar_image_topic="sonar_image_topic" sonar_image_raw_topic="sonar_image_raw_topic" debug="true" 
               maxDistance="20" raySkips="10" plotScaler="1" sensorGain="0.02" writeLog="false" writeFrameInterval="5" 
               artificialVehicleVibration="false" constantReflectivity="false" fidelity="500"
               reflectivityDatabaseFile="multibeam_sonar/nps_uw_multibeam_sonar/worlds/variationalReflectivityDatabase.csv"
               robot_link="${namespace}/base_link" ray_visual="true" gaussian_noise_mean="0.0" gaussian_noise_stddev="0.02">
-    <origin xyz="0 0 -0.25" rpy="0 0 0"/>
+    <origin xyz="0.25 0 -0.25" rpy="0 0 0"/>
   </xacro:multibeam_blueview_p900_macro>
   
 
