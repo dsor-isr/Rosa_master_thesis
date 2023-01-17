@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-
- <node pkg="detection" type="detection_node" name="detectionNode" respawn="false" output="screen">
-	<rosparam command="load" file="$(find detection)/config/config_detection.yaml"/>
-</node>
-
-</launch>
