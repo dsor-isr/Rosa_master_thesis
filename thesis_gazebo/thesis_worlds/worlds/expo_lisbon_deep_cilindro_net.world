@@ -21,6 +21,13 @@
         </clouds>
       </sky>
       <shadows>0</shadows>
+      <fog>
+        <color>0.1 0.2 0.3 1.0</color>
+        <type>linear</type>
+        <density>0.1</density>
+        <start>10</start>
+        <end>100</end>
+      </fog>
     </scene>
 
     <!-- Origin of the Lisbon Expo world in GPS coordinates -->
@@ -78,11 +85,16 @@
 
     <!-- Fishing Net-->
     <include>
-      <uri>model://fishing_net_cilindro</uri>
+      <uri>model://fishing_net_esfera</uri>
       <name>fishing_net1</name>
       <pose>0 30 -5 0 0 0</pose>
     </include>
 
+    <include>
+      <uri>model://fishing_net_cilindro</uri>
+      <name>fishing net2</name>
+      <pose>-60 30 -5 0 0 0</pose>
+    </include>
 
     <!-- Blueview P900 -->
     <!-- <include>

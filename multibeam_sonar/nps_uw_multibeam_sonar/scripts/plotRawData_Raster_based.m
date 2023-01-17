@@ -9,12 +9,12 @@ titletext = 'Ray Range Reduced/10m Range/512 Beams/11 Rays';
 clims_base = [-60 -0];
 nBeams = 512;
 FOV = 90/180*pi();
-maxRange = 10;
-xPlotRange = 10;
+maxRange = 15;
+xPlotRange = 15;
 yPlotRange = xPlotRange*cos(45/180*pi());
-filename = "/tmp/SonarRawData_000001.csv";
+filename = "/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_000006.csv";
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-bw = 29.9e3; % bandwidth
+bw = 5.98e4; % bandwidth
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Data = csvread(filename,4,0); clearvars Beams dist plotData

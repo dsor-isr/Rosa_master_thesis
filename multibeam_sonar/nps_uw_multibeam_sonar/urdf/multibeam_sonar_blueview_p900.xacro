@@ -37,7 +37,13 @@
         <update_rate>10</update_rate>
         <camera>
           <!-- 90 degrees for the M900-90 -->
-          <horizontal_fov>1.57079632679</horizontal_fov>
+          <!-- <horizontal_fov>1.57079632679</horizontal_fov> -->
+          <!--30 graus-->
+          <!-- <horizontal_fov>0.523598775</horizontal_fov> -->
+          <!--45 graus-->
+          <!-- <horizontal_fov>0.785398163</horizontal_fov> -->
+          <!--60 graus-->
+          <horizontal_fov>1.047197551</horizontal_fov>
           <image>
             <width>512</width>
             <!-- Set vertical FOV by setting image height -->
@@ -60,7 +66,7 @@
         <plugin filename="libnps_multibeam_sonar_ros_plugin.so" name="${name}_sensor_controller">
           <!-- Sonar properties -->
           <verticalFOV>20</verticalFOV>
-          <sonarFreq>900e3</sonarFreq>
+          <sonarFreq>1.8e6</sonarFreq>
           <bandwidth>29.9e3</bandwidth>
           <soundSpeed>1500</soundSpeed>
           <sourceLevel>220</sourceLevel>

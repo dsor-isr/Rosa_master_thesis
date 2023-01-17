@@ -99,6 +99,8 @@ void NpsGazeboRosMultibeamSonarRay::Load(sensors::SensorPtr _sensor,
   else
     this->point_cloud_topic_name_ =
         _sdf->GetElement("pointCloudTopicName")->Get<std::string>();
+        ROS_INFO_STREAM("POINT CLOUD TOPIC NAME");
+        ROS_INFO("%s\n", this->point_cloud_topic_name_.c_str());
 
   if (!_sdf->HasElement("pointCloudCutoff"))
     this->point_cloud_cutoff_ = 0.01;
@@ -246,18 +248,18 @@ void NpsGazeboRosMultibeamSonarRay::Load(sensors::SensorPtr _sensor,
         this->writeInterval = _sdf->Get<int>("writeFrameInterval");
       else
         this->writeInterval = 10;
-      ROS_INFO_STREAM("Raw data at " << "/tmp/SonarRawData_{numbers}.csv"
+      ROS_INFO_STREAM("Raw data at " << "/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_{numbers}.csv"
                       << " every " << this->writeInterval << " frames");
-      ROS_INFO_STREAM("Beam angles at /tmp/SonarRawData_beam_angles.csv");
+      ROS_INFO_STREAM("Beam angles at /mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_beam_angles.csv");
       ROS_INFO_STREAM("");
 
       struct stat buffer;
-      std::string logfilename("/tmp/SonarRawData_000001.csv");
-      std::string logfilename_angles("/tmp/SonarRawData_beam_angles.csv");
+      std::string logfilename("/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_000001.csv");
+      std::string logfilename_angles("/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_beam_angles.csv");
       if (stat (logfilename.c_str(), &buffer) == 0)
-        system("rm /tmp/SonarRawData*.csv");
+        system("rm /mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData*.csv");
       if (stat (logfilename_angles.c_str(), &buffer) == 0)
-        system("rm /tmp/SonarRawData_beam_angles.csv");
+        system("rm /mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_beam_angles.csv");
     }
   }
 
@@ -476,7 +478,7 @@ void NpsGazeboRosMultibeamSonarRay::ComputeSonarImage()
     {
       double time = this->parentSensor_->LastMeasurementTime().Double();
       std::stringstream filename;
-      filename << "/tmp/SonarRawData_" << std::setw(6) <<  std::setfill('0')
+      filename << "/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_" << std::setw(6) <<  std::setfill('0')
                << this->writeNumber << ".csv";
       writeLog.open(filename.str().c_str(), std::ios_base::app);
       filename.clear();
@@ -505,7 +507,7 @@ void NpsGazeboRosMultibeamSonarRay::ComputeSonarImage()
       if (this->writeNumber == 1)
       {
         std::stringstream filename_angle;
-        filename_angle << "/tmp/SonarRawData_beam_angles.csv";
+        filename_angle << "/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_beam_angles.csv";
         writeLog.open(filename_angle.str().c_str(), std::ios_base::app);
         filename_angle.clear();
         writeLog << "# Raw Sonar Data Log \n";

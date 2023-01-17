@@ -12,9 +12,9 @@ FOV = 90/180*pi();
 maxRange = 10;
 xPlotRange = 10;
 yPlotRange = xPlotRange*cos(45/180*pi());
-filename = "/tmp/SonarRawData_000001.csv";
+filename = "/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_000001.csv";
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-bw = 29.9e3; % bandwidth
+topicbw = 29.9e3; % bandwidth
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Data = csvread(filename,4,0); clearvars Beams dist plotData
@@ -30,7 +30,7 @@ for i=2:plotSkips:nBeams+1
     end
 end
 
-sonarBeams = csvread("/tmp/SonarRawData_beam_angles.csv",4)';
+sonarBeams = csvread("/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_beam_angles.csv",4)';
 
 range_vector = Data(:,1)';
 

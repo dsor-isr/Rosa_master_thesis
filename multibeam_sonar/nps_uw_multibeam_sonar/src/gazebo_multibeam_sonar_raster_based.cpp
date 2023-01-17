@@ -398,6 +398,7 @@ void NpsGazeboRosMultibeamSonar::Load(sensors::SensorPtr _parent,
   ROS_INFO_STREAM("Calculation skips (Elevation) = "
       << this->raySkips);
   ROS_INFO_STREAM("# of Time data / Beam = " << this->nFreq);
+  
   if (!this->constMu)
   {
     if (this->customTag)
@@ -424,14 +425,14 @@ void NpsGazeboRosMultibeamSonar::Load(sensors::SensorPtr _parent,
         this->writeInterval = _sdf->Get<int>("writeFrameInterval");
       else
         this->writeInterval = 10;
-      ROS_INFO_STREAM("Raw data at " << "/tmp/SonarRawData_{numbers}.csv");
+      ROS_INFO_STREAM("Raw data at " << "/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_{numbers}.csv");
       ROS_INFO_STREAM("every " << this->writeInterval << " frames");
       ROS_INFO_STREAM("");
 
       struct stat buffer;
-      std::string logfilename("/tmp/SonarRawData_000001.csv");
+      std::string logfilename("/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_000001.csv");
       if (stat (logfilename.c_str(), &buffer) == 0)
-        system("rm /tmp/SonarRawData*.csv");
+        system("rm /mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData*.csv");
     }
   }
 
@@ -857,6 +858,12 @@ void NpsGazeboRosMultibeamSonar::ComputeSonarImage(const float *_src)
                   this->beamCorrector,      // _beamCorrector
                   this->beamCorrectorSum,   // _beamCorrectorSum
                   this->debugFlag);
+  
+  ROS_INFO_STREAM("HFOV: " << hFOV);
+  ROS_INFO_STREAM("vertical FOV: " << verticalFOV);
+  ROS_INFO_STREAM("nBeams: " << this->nBeams);
+  ROS_INFO_STREAM("bandwidth: " << this->bandwidth);
+  ROS_INFO_STREAM("Freq: " << this->sonarFreq);
 
   // For calc time measure
   auto stop = std::chrono::high_resolution_clock::now();
@@ -882,7 +889,7 @@ void NpsGazeboRosMultibeamSonar::ComputeSonarImage(const float *_src)
     {
       double time = this->parentSensor_->LastMeasurementTime().Double();
       std::stringstream filename;
-      filename << "/tmp/SonarRawData_" << std::setw(6) <<  std::setfill('0')
+      filename << "/mnt/nfs/home/dgd_rosa/dsor/sonar_data/SonarRawData_" << std::setw(6) <<  std::setfill('0')
                << this->writeNumber << ".csv";
       writeLog.open(filename.str().c_str(), std::ios_base::app);
       filename.clear();

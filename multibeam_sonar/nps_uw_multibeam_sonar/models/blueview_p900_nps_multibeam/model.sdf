@@ -58,7 +58,7 @@
         </camera>
         <plugin filename="libnps_multibeam_sonar_ros_plugin.so" name="forward_sonar">
           <!-- Sonar properties -->
-          <verticalFOV>20</verticalFOV>
+          <verticalFOV>5</verticalFOV>
           <sonarFreq>900e3</sonarFreq>
           <bandwidth>29.9e3</bandwidth>
           <soundSpeed>1500</soundSpeed>
