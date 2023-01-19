@@ -1,0 +1,11 @@
+node_frequency: 10
+
+Net_radius: 6.25
+Sonar_range: 15
+SSE_threshold: 0.1
+Distance_of_outliers: 30
+
+POS_center: [30, 0]
+UTM_POS: [4290794.43, 491936.56]
+
+Vehicle: /bluerov_heavy0

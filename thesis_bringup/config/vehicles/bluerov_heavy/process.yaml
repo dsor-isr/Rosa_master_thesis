@@ -7,7 +7,7 @@ processes:
             - common:= false
             - simulation:= false
             - addons:= false
-            - navigation:= false
+            - navigation:= true
             - controllers:= true
             - cooperative:= false
             - comms:= false
@@ -23,7 +23,7 @@ processes:
       args:
             - x:= 0.0
             - y:= 15.0
-            - z:= -8.0
+            - z:= -5.0
             - roll:= 0.0
             - pitch:= 0.0
             - yaw:= 1.57
@@ -73,7 +73,7 @@ processes:
             - gnss2utm:= true
             - gnss2utmoutlier:= false
             - auvstate2mstate:= true
-            - usbl2pos:= true
+            - usbl2pos:= false
       dependencies:
             []
     

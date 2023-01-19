@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+
+ <node pkg="sonar_based_localisation" type="sonar_based_localisation_node" name="sonar_based_localisationNode" respawn="false" output="screen">
+	<rosparam command="load" file="$(find sonar_based_localisation)/config/config_sonar_based_localisation.yaml"/>
+</node>
+
+</launch>

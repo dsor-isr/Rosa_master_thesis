@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+
+import sonar_based_localisation_ros.SonarBasedLocalisationNode
+
+if __name__ == '__main__':
+ sonar_based_localisation_ros.SonarBasedLocalisationNode.main()

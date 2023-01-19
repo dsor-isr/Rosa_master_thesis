@@ -1,5 +1,5 @@
 vehicle_stabilizer:
-  references: {'depth': 8.0, 'pitch': 0.0, 'roll': 0.0}
+  references: {'pitch': 0.0, 'roll': 0.0}
 
 static_thruster_allocation:
   thrusters:
