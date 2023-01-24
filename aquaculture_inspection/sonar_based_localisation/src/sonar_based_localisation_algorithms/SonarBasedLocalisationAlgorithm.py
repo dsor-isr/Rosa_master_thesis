@@ -64,11 +64,26 @@ class sonarBasedNetCenterDetection:
         point_coordinates = np.concatenate((y, x), axis=1)
         return point_coordinates
 
-    def my_least_squares_circle(self, point_coordinates, radius):
+    def chooseStartingPoint(self, point_coordinates, img_width):
+        #compute sse from 2 corner points
+        x0 = np.array([[0, 0], [img_width, 0]])
+        sse1, sse2 = 0, 0
+        for point in point_coordinates:
+            d1 = np.sqrt((point[0]-x0[0,0])**2 + (point[1]-x0[0,1])**2)
+            d2 = np.sqrt((point[0]-x0[1,0])**2 + (point[1]-x0[1,1])**2)
+            sse1 = sse1 + d1
+            sse2 = sse2 + d2
+        
+        if sse2 < sse1:
+            return x0[1,:]
+        else:
+            return x0[0,:]
+
+    def my_least_squares_circle(self, point_coordinates, radius, starting_point):
         def fcn_optimize(c):
             return np.sqrt((point_coordinates[:, 0] - c[0])**2 + (point_coordinates[:, 1] - c[1])**2) - radius
 
-        center_estimate = 200, 200
+        center_estimate = starting_point[0], starting_point[1]
         center_opt, _ = optimize.leastsq(fcn_optimize, x0=center_estimate)
         a, b = center_opt
 
@@ -98,21 +113,25 @@ class sonarBasedNetCenterDetection:
 
         return filtered_points
 
-    def circleRegression(self, point_coordinates, radius, threshold, d_outlier):
-        a_1, b_1 = self.my_least_squares_circle(point_coordinates, radius)
+    def circleRegression(self, point_coordinates, radius, threshold, d_outlier, img_width):
+        x0 = self.chooseStartingPoint(point_coordinates, img_width)
+        a_1, b_1 = self.my_least_squares_circle(point_coordinates, radius, starting_point=x0)
         sse_mean = self.computeCircleSSE(point_coordinates, a_1, b_1, radius)
         if sse_mean > threshold:
             filtered_points = self.filterInnerPoints(point_coordinates, a_1, b_1, radius, d_outlier)
-            a_2, b_2 = self.my_least_squares_circle(filtered_points, radius)
+            a_2, b_2 = self.my_least_squares_circle(filtered_points, radius, starting_point=x0)
             return a_1, b_1, a_2, b_2
         else:
             return a_1, b_1
 
     
-    def makeCircle(self, binary_img, sse_threshold, d_outlier):
+    def makeCircle(self, binary_img, sse_threshold, d_outlier, img_width, nmin_points):
         real_radius_px = self.computeRadiusPxValue(binary_img)
         point_coordinates = self.getWhitePointsBinaryImg(binary_img)
-        result = self.circleRegression(point_coordinates, real_radius_px, sse_threshold, d_outlier)
+        #Not enough points to do a Regression
+        if point_coordinates.shape[0] < nmin_points:
+            return None, None
+        result = self.circleRegression(point_coordinates, real_radius_px, sse_threshold, d_outlier, img_width)
 
         result_size = len(result)
         if result_size > 2:
@@ -129,7 +148,7 @@ class sonarBasedNetCenterDetection:
         else:
             return a_2, b_2
             
-    def detect_circle(self, frame, sse_threshold, d_outlier):
+    def detect_circle(self, frame, sse_threshold, d_outlier, nmin_points):
         # Flip because the given image is fliped
         frame = cv.flip(frame, 1)
 
@@ -138,9 +157,14 @@ class sonarBasedNetCenterDetection:
         bilateral_img = self.bilateralFilter(gray, d=10, sigmaColor=100, sigmaSpace=100)
         binary_img = self.binaryFilter(bilateral_img, thresh=50, maxval=255)
 
+        img_width = binary_img.shape[1]
         #Circle Regression
-        xc, yc = self.makeCircle(binary_img, sse_threshold, d_outlier)
-        return xc, yc, frame, binary_img
+        xc, yc = self.makeCircle(binary_img, sse_threshold, d_outlier, img_width, nmin_points)
+        if xc is None and yc is None:
+            detection_flag = False
+            return detection_flag, xc, yc, frame, binary_img
+        detection_flag = True
+        return detection_flag, xc, yc, frame, binary_img
 
     
     

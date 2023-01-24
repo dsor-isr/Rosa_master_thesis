@@ -90,19 +90,12 @@
       <pose>0 30 -5 0 0 0</pose>
     </include>
 
-    <include>
+    <!-- <include>
       <uri>model://fishing_net_cilindro</uri>
       <name>fishing net2</name>
       <pose>-60 30 -5 0 0 0</pose>
-    </include>
-
-    <!-- Blueview P900 -->
-    <!-- <include>
-      <uri>model://blueview_p900_nps_multibeam</uri>
-      <name>blueview_p900_raster</name>
-      <pose>6 0 -5 0 0.25 0</pose>
-      <static>true</static>
     </include> -->
+
 
     <!-- TAKE OFF THE CURRENTS -->
     <!-- <plugin name="underwater_current_plugin" filename="libuuv_underwater_current_ros_plugin.so">
