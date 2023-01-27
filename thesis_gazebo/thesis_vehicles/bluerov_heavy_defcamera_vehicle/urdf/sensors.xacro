@@ -65,7 +65,7 @@
               artificialVehicleVibration="false" constantReflectivity="true" fidelity="500"
               reflectivityDatabaseFile="multibeam_sonar/nps_uw_multibeam_sonar/worlds/variationalReflectivityDatabase.csv"
               robot_link="${namespace}/base_link" ray_visual="true" gaussian_noise_mean="0.0" gaussian_noise_stddev="0.02">
-    <origin xyz="0.25 0 -0.25" rpy="0 0.174532925 0"/>
+    <origin xyz="0.25 0 -0.25" rpy="0 0 0"/>
   </xacro:multibeam_blueview_p900_macro>
   
 

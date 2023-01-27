@@ -1,12 +1,16 @@
 node_frequency: 10
 
-Net_radius: 6.25
-Sonar_range: 15
-SSE_threshold: 0.1
-Distance_of_outliers: 30
+net_radius: 6.25
+sonar_range: 15
+desired_distance: 3.0
+sway_ref: 0.2
+sse_threshold: 0.1
+distance_of_outliers: 30
 nmin_points: 100
 
-POS_center: [30, 0]
-UTM_POS: [4290794.43, 491936.56]
+pos_center: [30, 0]
+utm_pos_inertial: [4290794.43, 491936.56]
+
+inspection_flag: False
 
 Vehicle: /bluerov_heavy0

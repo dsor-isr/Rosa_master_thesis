@@ -8,8 +8,8 @@ import sys
 
 class sonarBasedNetCenterDetection:
     def __init__(self, sonar_range, net_radius) -> None:
-        self.sonar_range = sonar_range
-        self.net_radius = net_radius
+        self.sonar_range_ = sonar_range
+        self.net_radius_ = net_radius
         
     
     def grayFilter(self, frame):
@@ -42,9 +42,8 @@ class sonarBasedNetCenterDetection:
         cv.waitKey(0)
         cv.destroyAllWindows()
 
-    def computeRadiusPxValue(self, img):
-        height = img.shape[0]
-        real_radius_pixels = height*self.net_radius/self.sonar_range
+    def computeRadiusPxValue(self, height):
+        real_radius_pixels = height*self.net_radius_/self.sonar_range_
         return real_radius_pixels
 
     def computeVehiclePixelPos(self, width, height):
@@ -95,7 +94,6 @@ class sonarBasedNetCenterDetection:
         for i in range(0, n_data):
             sse = (radius - np.sqrt((point_coordinates[i, 0] - a)**2 + (point_coordinates[i, 1] - b)**2))**2
         
-        print("Mean SSE: " + str(sse/n_data))
         return sse/n_data
     
     def filterInnerPoints(self, point_coordinates, a, b, radius, d_outlier):
@@ -113,25 +111,22 @@ class sonarBasedNetCenterDetection:
 
         return filtered_points
 
-    def circleRegression(self, point_coordinates, radius, threshold, d_outlier, img_width):
-        x0 = self.chooseStartingPoint(point_coordinates, img_width)
-        a_1, b_1 = self.my_least_squares_circle(point_coordinates, radius, starting_point=x0)
+    def circleRegression(self, point_coordinates, radius, threshold, d_outlier, starting_point):
+        a_1, b_1 = self.my_least_squares_circle(point_coordinates, radius, starting_point=starting_point)
         sse_mean = self.computeCircleSSE(point_coordinates, a_1, b_1, radius)
         if sse_mean > threshold:
             filtered_points = self.filterInnerPoints(point_coordinates, a_1, b_1, radius, d_outlier)
-            a_2, b_2 = self.my_least_squares_circle(filtered_points, radius, starting_point=x0)
+            a_2, b_2 = self.my_least_squares_circle(filtered_points, radius, starting_point=starting_point)
             return a_1, b_1, a_2, b_2
         else:
             return a_1, b_1
 
     
-    def makeCircle(self, binary_img, sse_threshold, d_outlier, img_width, nmin_points):
-        real_radius_px = self.computeRadiusPxValue(binary_img)
-        point_coordinates = self.getWhitePointsBinaryImg(binary_img)
+    def makeCircle(self, real_radius_px, point_coordinates,sse_threshold, d_outlier, nmin_points, starting_point):
         #Not enough points to do a Regression
         if point_coordinates.shape[0] < nmin_points:
             return None, None
-        result = self.circleRegression(point_coordinates, real_radius_px, sse_threshold, d_outlier, img_width)
+        result = self.circleRegression(point_coordinates, real_radius_px, sse_threshold, d_outlier, starting_point)
 
         result_size = len(result)
         if result_size > 2:
@@ -148,7 +143,7 @@ class sonarBasedNetCenterDetection:
         else:
             return a_2, b_2
             
-    def detect_circle(self, frame, sse_threshold, d_outlier, nmin_points):
+    def detect_circle(self, frame, sse_threshold, d_outlier, nmin_points, starting_point):
         # Flip because the given image is fliped
         frame = cv.flip(frame, 1)
 
@@ -157,14 +152,45 @@ class sonarBasedNetCenterDetection:
         bilateral_img = self.bilateralFilter(gray, d=10, sigmaColor=100, sigmaSpace=100)
         binary_img = self.binaryFilter(bilateral_img, thresh=50, maxval=255)
 
+        
+        img_height = binary_img.shape[0]
         img_width = binary_img.shape[1]
+        real_radius_px = self.computeRadiusPxValue(img_height)
+        point_coordinates = self.getWhitePointsBinaryImg(binary_img)
+
+        #Compute the Distance to the Net
+        distance_net = self.computeDistanceToNet(point_coordinates, img_width, img_height)
         #Circle Regression
-        xc, yc = self.makeCircle(binary_img, sse_threshold, d_outlier, img_width, nmin_points)
+        xc, yc = self.makeCircle(real_radius_px, point_coordinates, sse_threshold, d_outlier, nmin_points, starting_point)
         if xc is None and yc is None:
             detection_flag = False
             return detection_flag, xc, yc, frame, binary_img
         detection_flag = True
-        return detection_flag, xc, yc, frame, binary_img
+        return detection_flag, xc, yc, frame, distance_net
 
-    
-    
+
+    def computeDistanceToNet(self, point_coordinates, img_width, img_height):
+        # find the index of the nearest point in the frame
+        indexes = np.where(point_coordinates[:, 1] == max(point_coordinates[:, 1]))
+        # Indexes in form array([x1, x2, x3, x4, ...], )
+        nearest_points = point_coordinates[indexes[0], :]
+        
+        # Compute Vehicle Pos in the IMage
+        sonar_pos = self.computeVehiclePixelPos(img_width, img_height)
+        distance_pixels = self.avgDistance(nearest_points, sonar_pos)
+        
+        #Convert Pixels To Meters
+        distance_meters = distance_pixels * self.sonar_range_ / img_height
+        
+        return distance_meters
+        
+    def avgDistance(self, nearest_points, sonar_pos):
+        dist = 0
+        counter = 0
+        for point in nearest_points:
+            dist = dist + np.sqrt((point[0] - sonar_pos[0])**2 + (point[1] - sonar_pos[1])**2)
+            counter = counter + 1
+        avg_distance = dist / counter
+        return avg_distance
+
+        

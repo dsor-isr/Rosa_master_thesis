@@ -22,7 +22,7 @@ processes:
       cmd: 'roslaunch thesis_gazebo_bringup bluerov_heavy_defcamera_model.launch'
       args:
             - x:= 0.0
-            - y:= 10.0
+            - y:= 17.0
             - z:= 0.0
             - roll:= 0.0
             - pitch:= 0.0
@@ -36,7 +36,7 @@ processes:
       delay_before_start: 1.0
       cmd: 'roslaunch farol_bringup bags.launch'
       args:
-            - prefix:= gazebo
+            - prefix:= sim_inspection
             - onebag:= true
       dependencies:
             []
