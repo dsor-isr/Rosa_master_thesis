@@ -6,6 +6,7 @@ from sonar_based_localisation_algorithms.InspectionController import InspectionC
 from auv_msgs.msg import NavigationStatus
 from std_msgs.msg import Float64, Bool
 import numpy as np
+from sonar_based_localisation.srv import ChangeDistanceParameters
 
 class InspectionControllerNode():
     def __init__(self):
@@ -21,25 +22,35 @@ class InspectionControllerNode():
         
         self.loadParams()
 
-        self.inspection_controller_ = InspectionController(self.sonar_range_, self.net_radius_)
+        self.inspection_controller_ = InspectionController(self.sonar_range_, self.net_radius_, self.k1_, self.k2_, self.dt_)
 
         self.initializeSubscribers()
         self.initializePublishers()
+        self.initializeServices()
         self.initializeTimer()
-
-
 
     """
     @.@ Member Helper function to set up parameters; 
     """
     def loadParams(self):
         self.node_frequency = rospy.get_param('~node_frequency', 10)
+        self.dt_ = 1/self.node_frequency
 
         self.real_center_ = rospy.get_param('~pos_center')
         self.net_radius_ = rospy.get_param('~net_radius')
         self.desired_distance_ = rospy.get_param('~desired_distance')
         self.sonar_range_ = rospy.get_param('~sonar_range')
-        self.sway_ref_ = rospy.get_param('~sway_ref')
+        self.sway_desired = rospy.get_param('~sway_desired')
+        self.last_distance_net_ = None
+        
+        # Constants of the Function to choose reference for sway
+        self.k1_ = rospy.get_param('~k1')
+        self.k2_ = rospy.get_param('~k2')
+
+        # Distance Controller
+        self.kp_dist_ = rospy.get_param('~kp_dist')
+        self.ki_dist_ = rospy.get_param('~ki_dist')
+
         self.utm_pos_inertial_ = rospy.get_param('~utm_pos_inertial')
         self.vehicle_ = rospy.get_param('~Vehicle')
         self.inspection_flag_ = rospy.get_param('~inspection_flag')
@@ -63,7 +74,12 @@ class InspectionControllerNode():
         self.surge_pub_ = rospy.Publisher(self.vehicle_ + '/ref/surge', Float64, queue_size=1)
         self.sway_pub_ = rospy.Publisher(self.vehicle_ + '/ref/sway', Float64, queue_size=1)
         self.error_dist_pub_ = rospy.Publisher('debug/error_dist', Float64, queue_size=1)
+        self.desired_dist_pub_ = rospy.Publisher('debug/desired_dist', Float64, queue_size=1)
 
+
+    def initializeServices(self):
+        rospy.loginfo('Initializing Services for SonarBasedLocalisationNode')
+        self.distance_param_srv_ = rospy.Service('/distance_param_srv', ChangeDistanceParameters, self.changeDistParamService)
     """
     @.@ Member helper function to set up the timer
     """
@@ -104,25 +120,35 @@ class InspectionControllerNode():
         try:
             yaw_desired = self.inspection_controller_.computeDesiredYaw(self.center_pixels_, self.sonar_pos_pixels_, self.yaw_)
             
-            surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_)
+            surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_distance_net_, self.kp_dist_, self.ki_dist_)
             
-            self.yaw_pub_.publish(yaw_desired)
+            self.last_distance_net_ = self.distance_net_
+            #self.yaw_pub_.publish(yaw_desired)
+            self.yaw_pub_.publish(0.0)
             self.surge_pub_.publish(surge_desired)
             self.error_dist_pub_.publish(error_dist)
+            self.desired_dist_pub_.publish(self.desired_distance_)
+
+            #sway_ref = self.inspection_controller_.swayReference(self.yaw_, yaw_desired, error_dist, self.sway_desired)
+            #self.sway_pub_.publish(sway_ref)
             
-            if self.inspection_flag_:
-                if self.inspection_controller_.checkConditionsForSway(self.yaw_, yaw_desired, error_dist):
-                    # Conditions for Inspection Fulfilled
-                    self.sway_pub_.publish(self.sway_ref_)
-                else:
-                    self.sway_pub_.publish(0.0)
-            else:
-                self.sway_pub_.publish(0.0)
-                print("INspection Flag Not Activated")
             
         except:
             print("EXCEPTION: Not all variables defined to compute desired yaw!")
 
+
+    def changeDistParamService(self, request):
+        if request.kp_dist < 0 or request.ki_dist < 0 or request.desired_distance <= 0:
+            success = False
+            message = "The values can't be negative"
+        else:
+            self.kp_dist_ = request.kp_dist
+            self.ki_dist_ = request.ki_dist
+            self.desired_distance_ = request.desired_distance
+            success = True
+            message = "Distance Parameters changed successfuly"
+        
+        return success, message
 
 def main():
 

@@ -1,0 +1,6 @@
+float32 sse_max_val
+float32 sse_min_val
+float32 dist_critical
+---
+bool success
+string message

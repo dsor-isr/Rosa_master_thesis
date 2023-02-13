@@ -12,6 +12,13 @@ find_package(catkin
 
 catkin_python_setup()
 
+#rosbuild_gensrv()
+
+add_service_files(
+  FILES
+  ChangeSSEValues.srv
+  ChangeDistanceParameters.srv
+)
 
 add_message_files(
     FILES

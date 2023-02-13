@@ -4,13 +4,16 @@ import numpy as np
 import cv2 as cv
 from scipy import optimize
 import matplotlib.pyplot as plt
-import sys
+from skimage.measure import label, regionprops
 
 class sonarBasedNetCenterDetection:
-    def __init__(self, sonar_range, net_radius) -> None:
+    def __init__(self, sonar_range, net_radius, dist_critical, dist_between_posts) -> None:
         self.sonar_range_ = sonar_range
         self.net_radius_ = net_radius
-        
+        self.dist_between_posts_ = dist_between_posts
+
+        #Critical Distance to Chose the SSE Threshold Value
+        self.dist_critical_ = dist_critical
     
     def grayFilter(self, frame):
         self.gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
@@ -42,7 +45,7 @@ class sonarBasedNetCenterDetection:
         cv.waitKey(0)
         cv.destroyAllWindows()
 
-    def computeRadiusPxValue(self, height):
+    def convertMeter2Pixels(self, height):
         real_radius_pixels = height*self.net_radius_/self.sonar_range_
         return real_radius_pixels
 
@@ -88,6 +91,9 @@ class sonarBasedNetCenterDetection:
 
         return a, b
 
+    """
+        Function to Compute the Mean Squared Error of the Circle Regression
+    """
     def computeCircleSSE(self, point_coordinates, a, b, radius):
         n_data = point_coordinates.shape[0]
         sse = 0
@@ -96,77 +102,87 @@ class sonarBasedNetCenterDetection:
         
         return sse/n_data
     
+    """
+        Function to choose the points *OUTSIDE* of the circle for the Circle Regression
+    """
     def filterInnerPoints(self, point_coordinates, a, b, radius, d_outlier):
         n_data = point_coordinates.shape[0]
         filtered_points = np.empty((0,2), int)
         for i in range(0, n_data):
             r_i = np.sqrt((point_coordinates[i, 0] - a)**2 + (point_coordinates[i, 1] - b)**2)
             #remove outliers
-            if abs(r_i - radius) < d_outlier:
+            # if abs(r_i - radius) < d_outlier:
                 #Outter Circle Points
-                if r_i >= radius:
-                    aux = point_coordinates[i, :]
-                    aux = np.reshape(aux, (1, 2))
-                    filtered_points = np.append(filtered_points, aux, axis=0)
+            if r_i >= radius:
+                aux = point_coordinates[i, :]
+                aux = np.reshape(aux, (1, 2))
+                filtered_points = np.append(filtered_points, aux, axis=0)
 
         return filtered_points
 
+    """
+        Compute the Circle that better fits the data points
+    """
     def circleRegression(self, point_coordinates, radius, threshold, d_outlier, starting_point):
         a_1, b_1 = self.my_least_squares_circle(point_coordinates, radius, starting_point=starting_point)
         sse_mean = self.computeCircleSSE(point_coordinates, a_1, b_1, radius)
-        if sse_mean > threshold:
+        
+        # if the error is big, then it discard the inner points and do the regression again, until it has a low error
+        counter_loops = 0 # number of corrections
+        while sse_mean > threshold:
+            if counter_loops == 4:
+                break
             filtered_points = self.filterInnerPoints(point_coordinates, a_1, b_1, radius, d_outlier)
-            a_2, b_2 = self.my_least_squares_circle(filtered_points, radius, starting_point=starting_point)
-            return a_1, b_1, a_2, b_2
-        else:
-            return a_1, b_1
+            a_1, b_1 = self.my_least_squares_circle(filtered_points, radius, starting_point=starting_point)
+            sse_mean = self.computeCircleSSE(filtered_points, a_1, b_1, radius)
+            counter_loops = counter_loops + 1
+        return a_1, b_1
 
     
-    def makeCircle(self, real_radius_px, point_coordinates,sse_threshold, d_outlier, nmin_points, starting_point):
+    def makeCircle(self, real_radius_px, point_coordinates, sse_threshold, d_outlier, nmin_points, starting_point):
         #Not enough points to do a Regression
         if point_coordinates.shape[0] < nmin_points:
             return None, None
         result = self.circleRegression(point_coordinates, real_radius_px, sse_threshold, d_outlier, starting_point)
 
-        result_size = len(result)
-        if result_size > 2:
-            a_1 = result[0]
-            b_1 = result[1]
-            a_2 = result[2]
-            b_2 = result[3]
-        else:
-            a_1 = result[0]
-            b_1 = result[1]
+        a_1 = result[0]
+        b_1 = result[1]
+
+        return a_1, b_1
+        
             
-        if result_size == 2:
-            return a_1, b_1
-        else:
-            return a_2, b_2
-            
-    def detect_circle(self, frame, sse_threshold, d_outlier, nmin_points, starting_point):
+    def detect_circle(self, frame, d_outlier, nmin_points, starting_point):
         # Flip because the given image is fliped
         frame = cv.flip(frame, 1)
-
+        
         #Image Processing
         gray = self.grayFilter(frame)
         bilateral_img = self.bilateralFilter(gray, d=10, sigmaColor=100, sigmaSpace=100)
-        binary_img = self.binaryFilter(bilateral_img, thresh=50, maxval=255)
-
+        binary_img = self.binaryFilter(bilateral_img, thresh=40, maxval=255)
         
         img_height = binary_img.shape[0]
         img_width = binary_img.shape[1]
-        real_radius_px = self.computeRadiusPxValue(img_height)
+        real_radius_px = self.convertMeter2Pixels(img_height)
         point_coordinates = self.getWhitePointsBinaryImg(binary_img)
-
+        
         #Compute the Distance to the Net
         distance_net = self.computeDistanceToNet(point_coordinates, img_width, img_height)
+        
+        # Choose the points for the regression
+        chosen_points = self.choosePoints(distance_net, point_coordinates, binary_img)
+        sse_threshold = 0.5
+        
         #Circle Regression
-        xc, yc = self.makeCircle(real_radius_px, point_coordinates, sse_threshold, d_outlier, nmin_points, starting_point)
+        xc, yc = self.makeCircle(real_radius_px, chosen_points, sse_threshold, d_outlier, nmin_points, starting_point)
+        
         if xc is None and yc is None:
             detection_flag = False
-            return detection_flag, xc, yc, frame, binary_img
-        detection_flag = True
-        return detection_flag, xc, yc, frame, distance_net
+            validity_center_flag = False
+            return detection_flag, xc, yc, binary_img, distance_net, point_coordinates, validity_center_flag
+        else:
+            detection_flag = True
+            validity_center_flag = self.checkValidityCenter(xc, yc, img_height, point_coordinates)
+            return detection_flag, xc, yc, frame, distance_net, chosen_points, validity_center_flag, binary_img
 
 
     def computeDistanceToNet(self, point_coordinates, img_width, img_height):
@@ -184,13 +200,118 @@ class sonarBasedNetCenterDetection:
         
         return distance_meters
         
-    def avgDistance(self, nearest_points, sonar_pos):
+    def avgDistance(self, points, sonar_pos):
         dist = 0
         counter = 0
-        for point in nearest_points:
+        for point in points:
             dist = dist + np.sqrt((point[0] - sonar_pos[0])**2 + (point[1] - sonar_pos[1])**2)
             counter = counter + 1
         avg_distance = dist / counter
         return avg_distance
 
+    def avgHeight(self, points):
+        height = 0
+        counter = 0
+        for point in points:
+            height = height + point[1]
+            counter = counter + 1
+        avg_height = height / counter
+        return avg_height
+
+    def checkValidityCenter(self, xc, yc, img_height, points):
+        # Not valid -> center behind the sonar
+        if yc > img_height:
+            print("\t\tBehind Sonar")
+            return False
+        else:
+            avg_height = self.avgHeight(points)
+            if avg_height < yc:
+                return False
+            else:
+                return True
+
+    """
+        Function for chosing the adequated points for the regression
+    
+    """
+    def choosePoints(self, distance, point_coordinates, binary_img):
+        dist_critical = self.dist_critical_
+        if distance >  dist_critical:        
+            points = point_coordinates
+        else:
+            points = self.getBlobPoints(binary_img)
+        return points
+    
+
+    def getBlobPoints(self, binary_img):
+        labels = label(binary_img)
+        region_props = regionprops(labels)
         
+        img_height = binary_img.shape[0]
+        img_width = binary_img.shape[1]
+        sonar_pos = self.computeVehiclePixelPos(img_width, img_height)
+
+        points = self.blobFilter(region_props, sonar_pos)
+        return points
+
+
+
+    def blobFilter(self, region_props, sonar_pos):
+        list_centroids = np.empty((0,2), float)
+        list_distance = np.empty((0,1), float)
+        blob_idx = np.empty((0,1), int)
+        counter = 0
+        blob_list = []
+        # compute the nearest blob to the sonar
+        for x in region_props:
+            centroid = np.array(x.centroid)
+            centroid = np.reshape(centroid, (1,2))
+            
+            # switch coordinates cause image coordinates are switched (x_img = y, y_img = x)
+            aux = centroid[0,0]
+            centroid[0,0] = centroid[0,1]
+            centroid[0,1] = aux
+            # filter the small blobs
+            if x.area > 50:
+                list_centroids = np.append(list_centroids, centroid, axis=0)
+                dist = np.sqrt((centroid[0, 0] - sonar_pos[0])**2 + (centroid[0, 1] - sonar_pos[1])**2)
+                list_distance = np.append(list_distance, dist)
+                blob_idx = np.append(blob_idx, counter)
+                blob_list.append(x)
+            
+            counter = counter + 1
+        
+
+        idx_min = np.argmin(list_distance)
+        post = False
+        ### WARNING AUTOMATE THIS VALUE
+        # Check if the area of the post is not too big
+        if blob_list[idx_min].area < 300:
+            for i in range(0, list_distance.size):
+                if i == idx_min:
+                    continue
+                
+                if list_centroids[i, 1] < list_centroids[idx_min, 1]:
+                    if abs(list_centroids[i, 0] - list_centroids[idx_min, 0]) < 100:
+                        dist = np.sqrt((list_centroids[i, 0] - list_centroids[idx_min, 0])**2 + (list_centroids[i, 1] - list_centroids[idx_min, 1])**2)
+                        print(dist)
+                        if dist < 100:
+                            print("É um Poste")
+                            post = True
+
+        
+        points = np.empty((0,2), int)
+        # Get points from the blobs
+        for i in range(0, list_distance.size):
+            # skip this blob if it is a post
+            if i == idx_min and post:
+                continue
+
+            blob = blob_list[i].coords
+            blob_x = blob[:, 1]
+            blob_y = blob[:, 0]
+            blob = np.transpose([blob_x, blob_y])
+
+            points = np.append(points, blob, axis=0)
+        
+        return points

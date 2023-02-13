@@ -93,7 +93,7 @@
     <!-- <include>
       <uri>model://fishing_net_cilindro</uri>
       <name>fishing net2</name>
-      <pose>-60 30 -5 0 0 0</pose>
+      <pose>0 30 -5 0 0 0</pose>
     </include> -->
 
 
@@ -103,9 +103,9 @@
       <constant_current>
         <topic>current_velocity</topic>
         <velocity>
-          <mean>0</mean>
+          <mean>0.1</mean>
           <min>0</min>
-          <max>5</max>
+          <max>0.2</max>
           <mu>0.0</mu>
           <noiseAmp>0.0</noiseAmp>
         </velocity>

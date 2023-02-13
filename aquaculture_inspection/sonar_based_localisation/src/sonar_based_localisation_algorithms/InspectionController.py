@@ -3,10 +3,14 @@
 import numpy as np
 
 class InspectionController():
-    def __init__(self, sonar_range, net_radius) -> None:
+    def __init__(self, sonar_range, net_radius, k1, k2, dt) -> None:
         self.net_radius_ = net_radius
         self.sonar_range_ = sonar_range
-    
+
+        self.k1_ = k1
+        self.k2_ = k2
+
+        self.dt_ = dt
 
     
     def computeDesiredYaw(self, center_pos_pixels, sonar_pos, yaw):
@@ -26,21 +30,34 @@ class InspectionController():
         yaw_desired = yaw + yaw_rel
         return yaw_desired
 
-    def computeDesiredSurge(self, desired_distance, distance):    
+    def computeDesiredSurge(self, desired_distance, distance, last_distance, kp_dist, ki_dist):
+        if last_distance is None:
+            last_error = -distance + desired_distance
+        else:
+            last_error = -last_distance + desired_distance
+
         # P Controller: u_desired = Kp*(d-d_desired)
-        error_dist = distance - desired_distance
-        surge_desired = 0.05*error_dist
+        error_dist = -distance + desired_distance
+        surge_desired = -kp_dist*error_dist - ki_dist * self.dt_ * (error_dist - last_error)
         return surge_desired, error_dist
 
-    '''
-        Function to check if the yaw and the distance to the net is near the desired,
-        so the inspection can begin
-    '''
-    def checkConditionsForSway(self, yaw, yaw_desired, error_dist):
-        
-        if np.abs(yaw_desired - yaw) < 5 and np.abs(error_dist) < 0.3:
-            print("Conditions For Sway: Check")
-            return True
+
+    """
+        Uses Bump Function for smoothness -> to be infinite times derivative (C_infinity)
+    """
+    def swayReference(self, yaw, yaw_desired, error_dist, sway_desired):
+        error_yaw = yaw_desired - yaw
+        error_yaw = 0
+        e_total = self.k1_*error_dist**2 + self.k2_ * error_yaw**2
+
+        if e_total > 1:
+            sway = 0.0
+            print("Sway: 0")
         else:
-            print("Conditions For Sway: Not fulfilled")
-            return False
+            bump = np.exp(-1/(1-e_total**2))
+            sway = sway_desired * np.exp(1) * bump
+            print("Sway: " + str(sway))
+        
+        return sway
+
+

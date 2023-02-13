@@ -32,11 +32,13 @@ class SonarBasedLocalisationNode():
         self.loadParams()
         
         # Instanciate the Center Detector object
-        self.sonar_detector = sonarBasedNetCenterDetection(self.sonar_range_, self.net_radius_)
+        self.sonar_detector = sonarBasedNetCenterDetection(self.sonar_range_, self.net_radius_, \
+                            self.dist_critical_, self.dist_between_posts_)
         
       
         self.initializeSubscribers()
         self.initializePublishers()
+        self.initializeServices()
         self.initializeTimer()
 
 
@@ -50,7 +52,10 @@ class SonarBasedLocalisationNode():
         self.real_center_ = rospy.get_param('~pos_center')
         self.net_radius_ = rospy.get_param('~net_radius')
         self.sonar_range_ = rospy.get_param('~sonar_range')
-        self.sse_threshold_ = rospy.get_param('~sse_threshold')
+        self.dist_between_posts_ = rospy.get_param('~dist_between_posts')
+
+        self.dist_critical_ = rospy.get_param('~dist_critical')
+        
         self.d_outlier_ = rospy.get_param('~distance_of_outliers')
         self.nmin_points_ = rospy.get_param('~nmin_points')
         self.bridge_ = CvBridge()
@@ -77,6 +82,11 @@ class SonarBasedLocalisationNode():
         self.detection_info_pub_ = rospy.Publisher('/detection/object/detection_results', DetectionResults, queue_size=1)
         self.yaw_desired_pub_ = rospy.Publisher('/yaw_check', Float64, queue_size=1)
         self.detection_flag_pub_ = rospy.Publisher('/detection/flag', Bool, queue_size=1)
+
+
+    def initializeServices(self):
+        rospy.loginfo('Initializing Services for SonarBasedLocalisationNode')
+        
     """
     @.@ Member helper function to set up the timer
     """
@@ -87,16 +97,27 @@ class SonarBasedLocalisationNode():
     def image_update_callback(self, data):
         try:
             self.cv_image_ = self.bridge_.imgmsg_to_cv2(data, "bgr8")
+            print("Image Received")
         except CvBridgeError as e:
             raise e
-        if self.starting_point_ is None:
-            height = self.cv_image_.shape[0]
-            width = self.cv_image_.shape[1]
-            
-            sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, height)
-            self.starting_point_ = self.computeInitialPos(height, sonar_pos)
+        
+        height = self.cv_image_.shape[0]
+        width = self.cv_image_.shape[1]
+        # if self.starting_point_ is None:
+        #     sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, height)
+        #     self.starting_point_ = self.computeInitialPos(height, sonar_pos)
+        sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, height)
+        self.starting_point_ = self.computeInitialPos(height, sonar_pos)
 
-
+    
+    """
+        Function to check if the starting Point is valid in case of a miscalculation
+    """
+    def checkStartingPointValidity(self, img_height):
+        #In case the estimation of the center is behind the sonar (Impossible)
+        if self.starting_point_[1] >= img_height:
+            self.starting_point_ = None
+        
     '''
         Function for computing the yaw reference to steer the vehicle to be facing towards the center of the net
     '''
@@ -115,6 +136,7 @@ class SonarBasedLocalisationNode():
     
     """
         Function to compute the Initial Condition for the Least Squares Method
+        Which is the Projection of the real center coordinates in Sonar Image pixels
     """
     def computeInitialPos(self, img_height, sonar_pos_pixels):
         yaw_rad = np.deg2rad(self.yaw_)
@@ -130,8 +152,8 @@ class SonarBasedLocalisationNode():
         
         return np.array([xc_px, yc_px])
 
-    def computeCenter(self, xc, yc, heigth, width, img):
-
+    def computeCenter(self, xc, yc, heigth, width, img, distance_net, binary_img):
+        print("159")
         sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, heigth)
         xp = sonar_pos[0]
         yp = sonar_pos[1]
@@ -146,12 +168,10 @@ class SonarBasedLocalisationNode():
                 
         pos_center_intertial = np.dot(R, center_pos_body) + pos_vehicle_intertial
         
-        
         # Show the computed circle
-        self.pubImageWithCircle(xc, yc, pos_center_intertial, sonar_pos, center_pos_body, img)
+        self.pubImageWithCircle(xc, yc, pos_center_intertial, sonar_pos, center_pos_body, img, distance_net, binary_img)
         
-
-        return pos_center_intertial, sonar_pos, center_pos_body
+        return pos_center_intertial, sonar_pos
 
     def computeRotationMatrix(self):
         yaw_radians = np.deg2rad(self.yaw_)
@@ -162,18 +182,32 @@ class SonarBasedLocalisationNode():
     '''
         Display Computed Circle info in the Sonar image
     '''
-    def pubImageWithCircle(self, xc, yc, pos_center_inertial, sonar_pos, center_pos_body, img):
+    def pubImageWithCircle(self, xc, yc, pos_center_inertial, sonar_pos, center_pos_body, img, distance_net, binary_img):
         color = (255, 0, 0)
         height = img.shape[0]
-        radius_px = self.sonar_detector.computeRadiusPxValue(height)
+        
+        img2 = np.zeros_like(img)
+        
+        img2[:,:,0] = binary_img
+        img2[:,:,1] = binary_img
+        img2[:,:,2] = binary_img
+
+        img = img2
+
+        # Draw used points
+        n_data = self.point_coordinates_.shape[0]
+        for i in range(0, n_data):
+            cv.circle(img, (int(self.point_coordinates_[i, 0]), int(self.point_coordinates_[i, 1])), int(1), (0,255,0), 2)    
+
+        radius_px = self.sonar_detector.convertMeter2Pixels(height)
         cv.circle(img, (int(xc), int(yc)), int(radius_px), color, 2)
         cv.circle(img, (int(xc), int(yc)), 2, color, 2)
         
         text = "Depth(meters): {:.2f}".format(self.depth_)
-        cv.putText(img, text, (10, 70), self.font_, 1, (255,255,255), 1)
+        cv.putText(img, text, (0, 70), self.font_, 1, (255,255,255), 1)
         
         text = "Center in Image(pixels) [x, y]: [" + str(int(xc)) + "," + str(int(yc)) + "]"
-        cv.putText(img, text, (10, 90), self.font_, 1, (255,255,255), 1)
+        cv.putText(img, text, (0, 90), self.font_, 1, (255,255,255), 1)
 
         text = "Sonar POS (pixels) [x, y]: [" + str(sonar_pos[0]) + "," + str(sonar_pos[1]) + "]"
         cv.putText(img, text, (0, 110), self.font_, 1, (255,255,255), 1)
@@ -185,29 +219,35 @@ class SonarBasedLocalisationNode():
         cv.putText(img, text, (0, 150), self.font_, 1, (255,255,255), 1)
 
         text = "Center Inertial Estimated (NED) [x, y]: [" + str(pos_center_inertial[0]) + "," + str(pos_center_inertial[1]) + "]"
-        cv.putText(img, text, (10, 170), self.font_, 1, (255,0,255), 1)
+        cv.putText(img, text, (0, 170), self.font_, 1, (255,0,255), 1)
 
         text = "Center Inertial REAL (NED) [x, y]: [" + str(self.real_center_[0]) + "," + str(self.real_center_[1]) + "]"
-        cv.putText(img, text, (10, 190), self.font_, 1, (255,0,255), 1)
+        cv.putText(img, text, (0, 190), self.font_, 1, (255,0,255), 1)
 
         text = "Yaw(Vehicle)"+ str(self.yaw_)
-        cv.putText(img, text, (10, 210), self.font_, 1, (255,0,255), 1)
+        cv.putText(img, text, (0, 210), self.font_, 1, (255,0,255), 1)
 
-        
         #Compute Desired Yaw to Check
         pos_center_pixels = np.array([xc, yc])
         yaw_desired, atan_conta = self.computeDesiredYaw(pos_center_pixels, sonar_pos, self.yaw_)
         
         text = "Yaw Desired: "+ str(yaw_desired)
-        cv.putText(img, text, (10, 230), self.font_, 1, (255,0,255), 1)
+        cv.putText(img, text, (0, 230), self.font_, 1, (255,0,255), 1)
 
         text = "ATAN: " + str(atan_conta)
-        cv.putText(img, text, (10, 250), self.font_, 1, (255,0,255), 1)
+        cv.putText(img, text, (0, 250), self.font_, 1, (255,0,255), 1)
 
         cv.line(img, (int(sonar_pos[0]), int(sonar_pos[1])), (int(xc), int(yc)), (0, 255, 0), 2)
 
+        text = "Distance Net: " + str(distance_net)
+        cv.putText(img, text, (0, 270), self.font_, 1, (255,255,255), 1)
 
+        text = "Dist Crit: " + str(self.dist_critical_)
+        cv.putText(img, text, (0, 290), self.font_, 1, (255,255,255), 1)
+        
+        
         img_msg = self.bridge_.cv2_to_imgmsg(img, "bgr8")
+        
         self.detection_image_pub_.publish(img_msg)
         
 
@@ -231,42 +271,48 @@ class SonarBasedLocalisationNode():
     @.@ Timer iter callback. Where the magic should happen
     """
     def timerIterCallback(self, event=None):
-        
+        print("Timer ITER CALLBACK")
         try:
-
+            print("TRY")
             # Compute Center of the Fishing Net in the Sonar Image
-            detected_flag, xc, yc, img, distance_net = self.sonar_detector.detect_circle(self.cv_image_, self.sse_threshold_, self.d_outlier_, \
-                                                                                        self.nmin_points_, self.starting_point_)
-
+            detected_flag, xc, yc, img, distance_net, self.point_coordinates_, validity_center_flag, binary_img = \
+                self.sonar_detector.detect_circle(self.cv_image_, self.d_outlier_, self.nmin_points_, self.starting_point_)
+            print("Detect Circle")
             self.detection_flag_pub_.publish(detected_flag)
             
             # Compute Real Center in Body Frame
+            # Net Detected
             if detected_flag:
+                print("Detected")
                 height = img.shape[0]
                 width = img.shape[1]
-                
-                pos_center_inertial, sonar_pos, center_pos_body = self.computeCenter(xc, yc, height, width, img)
-                
-                info_msg = DetectionResults()
-                info_msg.center_pixels = [xc, yc]
-                info_msg.center_inertial = pos_center_inertial
-                info_msg.sonar_pos_pixels = sonar_pos
-                info_msg.distance_net = distance_net
 
-                #Publish Info for the Inspection Controller
-                self.detection_info_pub_.publish(info_msg)
+                pos_center_inertial, sonar_pos = self.computeCenter(xc, yc, height, width, img, distance_net, binary_img)
+                self.sonar_pos_ = sonar_pos
+            
+                #Center is Valid to Publish info
+                if validity_center_flag:
+                    info_msg = DetectionResults()
+                    info_msg.center_pixels = [xc, yc]
+                    info_msg.center_inertial = pos_center_inertial
+                    info_msg.sonar_pos_pixels = sonar_pos
+                    info_msg.distance_net = distance_net
 
-                #update the initial point for Least Squares
-                self.starting_point_ = np.array([xc, yc])
+                    #Publish Info for the Inspection Controller
+                    self.detection_info_pub_.publish(info_msg)
 
+                    #update the initial point for Least Squares
+                    self.starting_point_ = np.array([xc, yc])
+                else:
+                    self.starting_point_ = None
+            
             else:
                 img_msg = self.bridge_.cv2_to_imgmsg(self.cv_image_, "bgr8")
                 self.detection_image_pub_.publish(img_msg)
         except:
-            print("EXCEPTION: No Image received")
+            print("EXCEPTION: All needed values are not available")
             
-    
-
+        
 def main():
 
     sonar_based_localisation = SonarBasedLocalisationNode()
