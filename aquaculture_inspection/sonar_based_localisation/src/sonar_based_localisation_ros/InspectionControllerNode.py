@@ -75,6 +75,7 @@ class InspectionControllerNode():
         self.sway_pub_ = rospy.Publisher(self.vehicle_ + '/ref/sway', Float64, queue_size=1)
         self.error_dist_pub_ = rospy.Publisher('debug/error_dist', Float64, queue_size=1)
         self.desired_dist_pub_ = rospy.Publisher('debug/desired_dist', Float64, queue_size=1)
+        self.e_total_pub_ = rospy.Publisher('/debug/e_total', Float64, queue_size=1)
 
 
     def initializeServices(self):
@@ -123,14 +124,16 @@ class InspectionControllerNode():
             surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_distance_net_, self.kp_dist_, self.ki_dist_)
             
             self.last_distance_net_ = self.distance_net_
-            #self.yaw_pub_.publish(yaw_desired)
-            self.yaw_pub_.publish(0.0)
+            self.yaw_pub_.publish(yaw_desired)
+            
             self.surge_pub_.publish(surge_desired)
             self.error_dist_pub_.publish(error_dist)
             self.desired_dist_pub_.publish(self.desired_distance_)
 
-            #sway_ref = self.inspection_controller_.swayReference(self.yaw_, yaw_desired, error_dist, self.sway_desired)
-            #self.sway_pub_.publish(sway_ref)
+            sway_ref, e_total = self.inspection_controller_.swayReference(self.yaw_, yaw_desired, error_dist, self.sway_desired)
+            self.e_total_pub_.publish(e_total)
+            self.sway_pub_.publish(sway_ref)
+            
             
             
         except:

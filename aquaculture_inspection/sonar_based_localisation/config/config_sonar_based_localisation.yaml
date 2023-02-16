@@ -10,13 +10,13 @@ dist_between_posts: 2.60
 dist_critical: 3
 
 distance_of_outliers: 30
-nmin_points: 100
+nmin_points: 500
 
 
 desired_distance: 2.5
 sway_desired: 0.2
-k1: 1.5625
-k2: 0.1
+k1: 2.0
+k2: 0.00444
 
 kp_dist: 0.05
 ki_dist: 0.0

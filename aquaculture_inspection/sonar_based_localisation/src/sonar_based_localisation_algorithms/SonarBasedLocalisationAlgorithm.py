@@ -14,6 +14,8 @@ class sonarBasedNetCenterDetection:
 
         #Critical Distance to Chose the SSE Threshold Value
         self.dist_critical_ = dist_critical
+        self.centroid_post_ = None
+        self.second_post_ = None
     
     def grayFilter(self, frame):
         self.gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
@@ -45,8 +47,8 @@ class sonarBasedNetCenterDetection:
         cv.waitKey(0)
         cv.destroyAllWindows()
 
-    def convertMeter2Pixels(self, height):
-        real_radius_pixels = height*self.net_radius_/self.sonar_range_
+    def convertMeter2Pixels(self, height, measure):
+        real_radius_pixels = height*measure/self.sonar_range_
         return real_radius_pixels
 
     def computeVehiclePixelPos(self, width, height):
@@ -162,7 +164,7 @@ class sonarBasedNetCenterDetection:
         
         img_height = binary_img.shape[0]
         img_width = binary_img.shape[1]
-        real_radius_px = self.convertMeter2Pixels(img_height)
+        real_radius_px = self.convertMeter2Pixels(img_height, self.net_radius_)
         point_coordinates = self.getWhitePointsBinaryImg(binary_img)
         
         #Compute the Distance to the Net
@@ -238,8 +240,12 @@ class sonarBasedNetCenterDetection:
         dist_critical = self.dist_critical_
         if distance >  dist_critical:        
             points = point_coordinates
+            self.centroid_post_ = None
         else:
-            points = self.getBlobPoints(binary_img)
+            try:
+                points = self.getBlobPoints(binary_img)
+            except:
+                print("EXCEPTION: BLOBS")
         return points
     
 
@@ -251,17 +257,21 @@ class sonarBasedNetCenterDetection:
         img_width = binary_img.shape[1]
         sonar_pos = self.computeVehiclePixelPos(img_width, img_height)
 
-        points = self.blobFilter(region_props, sonar_pos)
+        points = self.blobFilter(region_props, sonar_pos, img_height)
         return points
 
 
 
-    def blobFilter(self, region_props, sonar_pos):
+    def blobFilter(self, region_props, sonar_pos, img_height):
         list_centroids = np.empty((0,2), float)
         list_distance = np.empty((0,1), float)
         blob_idx = np.empty((0,1), int)
         counter = 0
         blob_list = []
+
+        self.second_post_ = None
+        self.centroid_post_ = None
+
         # compute the nearest blob to the sonar
         for x in region_props:
             centroid = np.array(x.centroid)
@@ -284,20 +294,43 @@ class sonarBasedNetCenterDetection:
 
         idx_min = np.argmin(list_distance)
         post = False
-        ### WARNING AUTOMATE THIS VALUE
+        ### WARNING AUTOMATE THIS VALUE 300
         # Check if the area of the post is not too big
-        if blob_list[idx_min].area < 300:
+        if blob_list[idx_min].area < 500:
             for i in range(0, list_distance.size):
                 if i == idx_min:
                     continue
                 
+                # a lob above of the closest
                 if list_centroids[i, 1] < list_centroids[idx_min, 1]:
                     if abs(list_centroids[i, 0] - list_centroids[idx_min, 0]) < 100:
                         dist = np.sqrt((list_centroids[i, 0] - list_centroids[idx_min, 0])**2 + (list_centroids[i, 1] - list_centroids[idx_min, 1])**2)
-                        print(dist)
                         if dist < 100:
-                            print("É um Poste")
+                            print("\tÉ um Poste")
+                            # For debug reasons/ to print in the image
+                            self.centroid_post_ = list_centroids[idx_min, :]
                             post = True
+                            break
+
+        
+        # check if there is another Post
+        # Warning Not Working Well
+        second_post = False
+        idx_second = -1
+        if post:
+            dist_between_post_px = self.convertMeter2Pixels(img_height, self.dist_between_posts_)
+            for i in range(0, list_distance.size):
+                if i == idx_min:
+                    continue
+                if blob_list[i].area < 500 and blob_list[i].area > 100:
+                    dist = np.sqrt((list_centroids[i, 0] - list_centroids[idx_min, 0])**2 + (list_centroids[i, 1] - list_centroids[idx_min, 1])**2)
+                    
+                    # error between centroids of both posts must be within a certain threshold
+                    if abs(dist - dist_between_post_px) < 10:
+                        print("\t\tSECOND POST")
+                        second_post = True
+                        idx_second = i
+                        self.second_post_ = list_centroids[i, :]
 
         
         points = np.empty((0,2), int)
@@ -306,6 +339,8 @@ class sonarBasedNetCenterDetection:
             # skip this blob if it is a post
             if i == idx_min and post:
                 continue
+            elif i == idx_second and second_post:
+                continue
 
             blob = blob_list[i].coords
             blob_x = blob[:, 1]
@@ -313,5 +348,11 @@ class sonarBasedNetCenterDetection:
             blob = np.transpose([blob_x, blob_y])
 
             points = np.append(points, blob, axis=0)
-        
+
         return points
+
+    def getCentroidPost(self):
+        return self.centroid_post_
+
+    def getSecondCentroidPost(self):
+        return self.second_post_
