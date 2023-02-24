@@ -42,6 +42,7 @@ class InspectionControllerNode():
         self.sonar_range_ = rospy.get_param('~sonar_range')
         self.sway_desired = rospy.get_param('~sway_desired')
         self.last_distance_net_ = None
+        self.distance_array_ = None
         
         # Constants of the Function to choose reference for sway
         self.k1_ = rospy.get_param('~k1')
@@ -75,7 +76,9 @@ class InspectionControllerNode():
         self.sway_pub_ = rospy.Publisher(self.vehicle_ + '/ref/sway', Float64, queue_size=1)
         self.error_dist_pub_ = rospy.Publisher('debug/error_dist', Float64, queue_size=1)
         self.desired_dist_pub_ = rospy.Publisher('debug/desired_dist', Float64, queue_size=1)
+        self.avg_dist_pub_ = rospy.Publisher('debug/avg_dist', Float64, queue_size=1)
         self.e_total_pub_ = rospy.Publisher('/debug/e_total', Float64, queue_size=1)
+        self.real_distance_pub_ = rospy.Publisher('/debug/real_distance', Float64, queue_size=1)
 
 
     def initializeServices(self):
@@ -94,6 +97,25 @@ class InspectionControllerNode():
         self.sonar_pos_pixels_ = data.sonar_pos_pixels
         self.distance_net_ = data.distance_net
 
+        # Add Distance to the Distance Array
+        self.addDistance(self.distance_net_)
+        self.avg_distance_ = self.avgDistance()
+        
+
+
+    def addDistance(self, distance):
+        if self.distance_array_ is None:
+            self.distance_array_ = np.array([distance])
+        elif self.distance_array_.size == 10:
+            #delete oldest value in idx = 0
+            aux_array = np.array([self.distance_array_[1:]])
+            self.distance_array_ = np.append(aux_array, distance)
+        else:
+            self.distance_array_ = np.append(self.distance_array_, distance)
+    
+    def avgDistance(self):
+        return np.sum(self.distance_array_)/self.distance_array_.size
+
     def state_callback(self, data):
         self.surge_ = data.body_velocity.x
         self.sway_ = data.body_velocity.y
@@ -102,6 +124,15 @@ class InspectionControllerNode():
         self.x_ = data.position.north - self.utm_pos_inertial_[0]
         self.y_ = data.position.east - self.utm_pos_inertial_[1]
         self.depth_ = data.position.depth
+
+        d = self.computeRealDistance()
+        self.real_distance_pub_.publish(d)
+
+
+    def computeRealDistance(self):
+        dist_center = np.sqrt((self.x_ - self.real_center_[0])**2 + (self.y_ - self.real_center_[1])**2)
+        d = dist_center - self.net_radius_
+        return d
 
     def inspection_flag_callback(self, data):
         self.inspection_flag_ = data.data
@@ -121,14 +152,15 @@ class InspectionControllerNode():
         try:
             yaw_desired = self.inspection_controller_.computeDesiredYaw(self.center_pixels_, self.sonar_pos_pixels_, self.yaw_)
             
-            surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_distance_net_, self.kp_dist_, self.ki_dist_)
+            surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.avg_distance_, self.last_distance_net_, self.kp_dist_, self.ki_dist_)
             
-            self.last_distance_net_ = self.distance_net_
+            self.last_distance_net_ = self.avg_distance_
             self.yaw_pub_.publish(yaw_desired)
             
             self.surge_pub_.publish(surge_desired)
             self.error_dist_pub_.publish(error_dist)
             self.desired_dist_pub_.publish(self.desired_distance_)
+            self.avg_dist_pub_.publish(self.avg_distance_)
 
             sway_ref, e_total = self.inspection_controller_.swayReference(self.yaw_, yaw_desired, error_dist, self.sway_desired)
             self.e_total_pub_.publish(e_total)

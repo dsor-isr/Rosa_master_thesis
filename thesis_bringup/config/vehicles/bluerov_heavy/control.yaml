@@ -80,8 +80,10 @@ inner_loops_pid:
             min_out: -10.0
         # Surge Params
         surge:
-            kp: 26.0
-            ki: 1.0
+            # kp: 26.0
+            # ki: 1.0
+            kp: 15.0
+            ki: 0.5
             max_ref:  0.7  # m/s
             min_ref: -0.7  # m/s
             max_err:  0.2  # m/s
@@ -90,8 +92,10 @@ inner_loops_pid:
             min_out: -25.0
         # Sway Params
         sway:
-            kp: 26.0
-            ki: 1.0 
+            # kp: 26.0
+            # ki: 1.0
+            kp: 15.0
+            ki: 0.5 
             max_ref:  0.5  # m/s
             min_ref: -0.5  # m/s
             max_err:  0.2  # m/s

@@ -11,7 +11,7 @@ class InspectionController():
         self.k2_ = k2
 
         self.dt_ = dt
-
+        
     
     def computeDesiredYaw(self, center_pos_pixels, sonar_pos, yaw):
         x_c = center_pos_pixels[0]
@@ -45,14 +45,18 @@ class InspectionController():
 
         # P Controller: u_desired = Kp*(d-d_desired)
         error_dist = -distance + desired_distance
-        surge_desired = -kp_dist*error_dist - ki_dist * self.dt_ * (error_dist - last_error)
-
-
-        # Saturate output
-        if surge_desired > 0.7:
-            surge_desired = 0.7
-        elif surge_desired < -0.7:
-            surge_desired = -0.7
+        
+        # if the error is not far from the net do not give input of surge
+        # This is to fix the "wavy" behaviour
+        if error_dist > -0.5 and error_dist < 0.3:
+            surge_desired = 0
+        else:
+            surge_desired = -kp_dist*error_dist - ki_dist * self.dt_ * (error_dist - last_error)
+            # Saturate output
+            if surge_desired > 0.7:
+                surge_desired = 0.7
+            elif surge_desired < -0.7:
+                surge_desired = -0.7
 
         return surge_desired, error_dist
 
@@ -87,4 +91,5 @@ class InspectionController():
         
         return yaw_error
 
+    
 

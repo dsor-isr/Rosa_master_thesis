@@ -7,7 +7,7 @@ import rospy
 from sonar_based_localisation_algorithms.SonarBasedLocalisationAlgorithm import sonarBasedNetCenterDetection
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64, Bool
-from auv_msgs.msg import NavigationStatus
+from auv_msgs.msg import NavigationStatus, NED
 from sonar_based_localisation.msg import DetectionResults
 from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
@@ -86,6 +86,7 @@ class SonarBasedLocalisationNode():
         self.detection_info_pub_ = rospy.Publisher('/detection/object/detection_results', DetectionResults, queue_size=1)
         self.yaw_desired_pub_ = rospy.Publisher('/yaw_check', Float64, queue_size=1)
         self.detection_flag_pub_ = rospy.Publisher('/detection/flag', Bool, queue_size=1)
+        self.position_wrapped_pub_ = rospy.Publisher('/position_wrapped', NED, queue_size=1)
 
 
     def initializeServices(self):
@@ -156,7 +157,7 @@ class SonarBasedLocalisationNode():
         
         return np.array([xc_px, yc_px])
 
-    def computeCenter(self, xc, yc, heigth, width, img, distance_net, binary_img):
+    def computeCenter(self, xc, yc, heigth, width):
         sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, heigth)
         xp = sonar_pos[0]
         yp = sonar_pos[1]
@@ -165,16 +166,13 @@ class SonarBasedLocalisationNode():
         yc_body = (xc-xp) * self.sonar_range_/heigth
 
         center_pos_body = np.array([[xc_body], [yc_body]]) # Position Center in Body Frame
-        pos_vehicle_intertial = np.array([[self.x_], [self.y_]])
+        pos_vehicle_inertial = np.array([[self.x_], [self.y_]])
 
         R = self.computeRotationMatrix()
                 
-        pos_center_intertial = np.dot(R, center_pos_body) + pos_vehicle_intertial
+        pos_center_inertial = np.dot(R, center_pos_body) + pos_vehicle_inertial
         
-        # Show the computed circle
-        self.pubImageWithCircle(xc, yc, pos_center_intertial, sonar_pos, center_pos_body, img, distance_net, binary_img)
-        
-        return pos_center_intertial, sonar_pos
+        return pos_center_inertial, sonar_pos, center_pos_body
 
     def computeRotationMatrix(self):
         yaw_radians = np.deg2rad(self.yaw_)
@@ -185,7 +183,7 @@ class SonarBasedLocalisationNode():
     '''
         Display Computed Circle info in the Sonar image
     '''
-    def pubImageWithCircle(self, xc, yc, pos_center_inertial, sonar_pos, center_pos_body, img, distance_net, binary_img):
+    def pubImageWithCircle(self, xc, yc, pos_center_inertial, sonar_pos, center_pos_body, img, distance_net, binary_img, not_outlier_flag):
         color = (255, 0, 0)
         height = img.shape[0]
         
@@ -203,7 +201,12 @@ class SonarBasedLocalisationNode():
             cv.circle(img, (int(self.point_coordinates_[i, 0]), int(self.point_coordinates_[i, 1])), int(1), (0,255,0), 2)    
 
         radius_px = self.sonar_detector.convertMeter2Pixels(height, self.net_radius_)
-        cv.circle(img, (int(xc), int(yc)), int(radius_px), color, 2)
+        #show regressed circle
+        if not_outlier_flag:
+            cv.circle(img, (int(xc), int(yc)), int(radius_px), color, 2)
+        else:
+            cv.circle(img, (int(xc), int(yc)), int(radius_px), (255, 255, 255), 2)
+        # center of the circle
         cv.circle(img, (int(xc), int(yc)), 2, color, 2)
         
         centroid_post = self.sonar_detector.getCentroidPost()
@@ -274,6 +277,12 @@ class SonarBasedLocalisationNode():
         self.y_ = data.position.east - self.utm_pos_inertial_[1]
         self.depth_ = data.position.depth
 
+        msg = NED()
+        msg.north = self.x_
+        msg.east = self.y_
+        msg.depth = self.depth_
+        self.position_wrapped_pub_.publish(msg)
+
     """
     @.@ Member helper function to shutdown timer;
     """
@@ -310,14 +319,16 @@ class SonarBasedLocalisationNode():
                 width = img.shape[1]
 
                 # Compute Real Center in Body Frame
-                pos_center_inertial, sonar_pos = self.computeCenter(xc, yc, height, width, img, distance_net, binary_img)
+                pos_center_inertial, sonar_pos, center_pos_body = self.computeCenter(xc, yc, height, width)
                 self.sonar_pos_ = sonar_pos
-            
 
                 not_outlier_flag = True
                 # Check if the estimation of the center is not too far away from the previous one
                 if self.last_center_ is not None:
                     not_outlier_flag = self.checkCenterOutlier(pos_center_inertial)
+
+                # Show the computed circle
+                self.pubImageWithCircle(xc, yc, pos_center_inertial, sonar_pos, center_pos_body, img, distance_net, binary_img, not_outlier_flag)
                 
                 #Center is Valid to Publish info
                 if validity_center_flag and not_outlier_flag:
@@ -335,8 +346,6 @@ class SonarBasedLocalisationNode():
 
                     #update last center
                     self.last_center_ = pos_center_inertial
-
-                    self.starting_point_ = np.array([xc, yc])
             
             else:
                 img_msg = self.bridge_.cv2_to_imgmsg(self.cv_image_, "bgr8")

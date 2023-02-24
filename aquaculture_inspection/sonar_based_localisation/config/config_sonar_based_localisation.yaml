@@ -14,7 +14,7 @@ nmin_points: 500
 
 
 desired_distance: 2.5
-sway_desired: 0.2
+sway_desired: 0.15
 k1: 2.0
 k2: 0.00444
 
