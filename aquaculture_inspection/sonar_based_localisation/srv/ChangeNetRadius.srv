@@ -1,0 +1,4 @@
+float32 net_radius
+---
+bool success
+string message

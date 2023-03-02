@@ -1,0 +1,28 @@
+<sdf version="1.5">    
+  <model name="fishing_net_new">
+    <link name="fishing_net_new_link">
+      <static>false</static>
+      <collision name="fishing_net_new">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://fishing_net_new/meshes/fishing_net_new.dae</uri>
+            <scale>0.5 0.5 0.5</scale>
+          </mesh>
+        </geometry>
+      </collision>
+    
+      <visual name="fishing_net_new">
+        <pose>0 0 0 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <mesh>
+            <uri>model://fishing_net_new/meshes/fishing_net_new.dae</uri>
+            <scale>0.5 0.5 0.5</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <kinematic>1</kinematic>
+     </link>
+  </model> 
+</sdf>

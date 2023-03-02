@@ -1,16 +1,23 @@
 node_frequency: 10
 
-# Cylinder : 5.625 m
-# Sphere : 6.325 m
-#net_radius: 6.325
-net_radius: 6.325
 sonar_range: 15
-dist_between_posts: 2.60
+sonar_pos_body: [0.25, 0, -0.25]
 
-dist_critical: 3
+# Cylinder : 5.625 m
+# Sphere 15 posts:
+# net_radius: 6.55
+# dist_between_posts: 2.66
+
+# Sphere 20 posts:
+net_radius: 6.4
+dist_between_posts: 2.025
+net_sphere_radius: []
+number_posts: 20
+
+dist_critical: 3.0
 
 distance_of_outliers: 30
-nmin_points: 500
+nmin_points: 200
 
 
 desired_distance: 2.5

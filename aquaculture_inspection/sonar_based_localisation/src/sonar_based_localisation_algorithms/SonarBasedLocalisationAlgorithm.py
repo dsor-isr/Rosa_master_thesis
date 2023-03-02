@@ -5,15 +5,17 @@ import cv2 as cv
 from scipy import optimize
 import matplotlib.pyplot as plt
 from skimage.measure import label, regionprops
+from scipy.spatial.distance import cdist
 
 class sonarBasedNetCenterDetection:
-    def __init__(self, sonar_range, net_radius, dist_critical, dist_between_posts) -> None:
+    def __init__(self, sonar_range, net_radius, dist_critical, dist_between_posts, number_posts) -> None:
         self.sonar_range_ = sonar_range
         self.net_radius_ = net_radius
         self.dist_between_posts_ = dist_between_posts
 
         #Critical Distance to Chose the SSE Threshold Value
         self.dist_critical_ = dist_critical
+        self.number_posts_ = number_posts
         self.centroid_post_ = None
         self.second_post_ = None
     
@@ -164,47 +166,68 @@ class sonarBasedNetCenterDetection:
         #Image Processing
         gray = self.grayFilter(frame)
         bilateral_img = self.bilateralFilter(gray, d=10, sigmaColor=100, sigmaSpace=100)
-        binary_img = self.binaryFilter(bilateral_img, thresh=40, maxval=255)
+        binary_img = self.binaryFilter(bilateral_img, thresh=30, maxval=255)
         
         img_height = binary_img.shape[0]
         img_width = binary_img.shape[1]
         real_radius_px = self.convertMeter2Pixels(img_height, self.net_radius_)
         point_coordinates = self.getWhitePointsBinaryImg(binary_img)
         
-        print("174")
         # Choose the points for the regression
-        chosen_points, distance_net = self.choosePoints(point_coordinates, binary_img)
+        chosen_points, distance_net, centroid = self.choosePoints(point_coordinates, binary_img)
 
         sse_threshold = 0.5
-        
         #Circle Regression
-        xc, yc = self.makeCircle(real_radius_px, chosen_points, sse_threshold, d_outlier, nmin_points, starting_point)
+        try:
+            xc, yc = self.makeCircle(real_radius_px, chosen_points, sse_threshold, d_outlier, nmin_points, starting_point)
+        except:
+            print("Exception: Make Circle")
+            exit()
         
-        if xc is None and yc is None:
+        if xc is None or yc is None:
             detection_flag = False
             validity_center_flag = False
-            return detection_flag, xc, yc, binary_img, distance_net, point_coordinates, validity_center_flag
+            return detection_flag, xc, yc, frame, distance_net, point_coordinates, validity_center_flag, binary_img, centroid
         else:
             detection_flag = True
             validity_center_flag = self.checkValidityCenter(xc, yc, img_height, point_coordinates)
-            return detection_flag, xc, yc, frame, distance_net, chosen_points, validity_center_flag, binary_img
+            return detection_flag, xc, yc, frame, distance_net, chosen_points, validity_center_flag, binary_img, centroid
 
 
     def computeDistanceToNetPixel(self, blob_list, idx_min, sonar_pos):
 
-        blob = blob_list[idx_min].coords
-        blob_x = blob[:, 1]
-        blob_y = blob[:, 0]
-        blob = np.transpose([blob_x, blob_y])
+        blob = blob_list[idx_min]
 
-        # find the index of the nearest point in the frame
-        indexes = np.where(blob[:, 1] == max(blob[:, 1]))
-        # Indexes in form array([x1, x2, x3, x4, ...], )
-        nearest_points = blob[indexes[0], :]
+        centroid = np.array(blob.centroid)
+        centroid = np.reshape(centroid, (1,2))
         
-        distance_pixels = self.avgDistance(nearest_points, sonar_pos)
+        # switch coordinates cause image coordinates are switched (x_img = y, y_img = x)
+        aux = centroid[0,0]
+        centroid[0,0] = centroid[0,1]
+        centroid[0,1] = aux
+
+        distance_pixels = np.sqrt((centroid[0, 1] - sonar_pos[1])**2)
+
+        ### Centroid is for debuging
+        return distance_pixels, centroid
+    
+    # def computeDistanceToNetPixel(self, blob_list, idx_min, sonar_pos):
+
+    #     blob = blob_list[idx_min]
+
+    #     blob = blob.coords
+    #     blob_x = blob[:, 1]
+    #     blob_y = blob[:, 0]
+    #     blob = np.transpose([blob_x, blob_y])
+
+    #     i_max = np.argmax(blob_y)
+    #     distance_pixels = np.sqrt((blob_y[i_max] - sonar_pos[1])**2)
         
-        return distance_pixels
+    #     #just to run
+    #     centroid = np.array([[blob_x[i_max], blob_y[i_max]]])
+        
+    #     ### Centroid is for debuging
+    #     return distance_pixels, centroid
         
     def avgDistance(self, points, sonar_pos):
         dist = 0
@@ -214,6 +237,22 @@ class sonarBasedNetCenterDetection:
             counter = counter + 1
         avg_distance = dist / counter
         return avg_distance
+    
+    def computeDistanceToNetPixel2(self, blob_list, idx_min, sonar_pos):
+        blob = blob_list[idx_min].coords
+        blob_x = blob[:, 1]
+        blob_y = blob[:, 0]
+        blob = np.transpose([blob_x, blob_y])
+        
+        """
+            sonar_pos is (2,) shaped array, but cdist needs to both arrays to have the same number of columns
+        """
+        sonar_pos = np.reshape(sonar_pos, (1, 2))
+        dist_array = cdist(sonar_pos, blob)
+        
+        idx = np.argmin(dist_array)
+        distance_pixels = dist_array[0, idx]
+        return distance_pixels
 
     def avgHeight(self, points):
         height = 0
@@ -241,7 +280,6 @@ class sonarBasedNetCenterDetection:
     
     """
     def choosePoints(self, point_coordinates, binary_img):
-        print("244")
         dist_critical = self.dist_critical_
         labels = label(binary_img)
         region_props = regionprops(labels)
@@ -252,7 +290,9 @@ class sonarBasedNetCenterDetection:
     
         blob_list, list_centroids, list_distance, idx_min = self.computeNearestBlob(region_props, sonar_pos)
         
-        distance_net_px = self.computeDistanceToNetPixel(blob_list, idx_min, sonar_pos)
+        distance_net_px, centroid = self.computeDistanceToNetPixel(blob_list, idx_min, sonar_pos)
+        
+        #distance_net_px = self.computeDistanceToNetPixel2(blob_list, idx_min, sonar_pos)
         distance = self.convertPixels2Meters(img_height, distance_net_px)
         
         if distance >  dist_critical:        
@@ -263,7 +303,7 @@ class sonarBasedNetCenterDetection:
                 points = self.filterPosts(img_height, blob_list, list_centroids, list_distance, idx_min)
             except:
                 print("EXCEPTION: BLOBS")
-        return points, distance
+        return points, distance, centroid
 
 
     def computeNearestBlob(self, region_props, sonar_pos):
@@ -280,8 +320,9 @@ class sonarBasedNetCenterDetection:
             aux = centroid[0,0]
             centroid[0,0] = centroid[0,1]
             centroid[0,1] = aux
+            
             # filter the small blobs
-            if x.area > 50:
+            if x.area > 20:
                 list_centroids = np.append(list_centroids, centroid, axis=0)
                 dist = np.sqrt((centroid[0, 0] - sonar_pos[0])**2 + (centroid[0, 1] - sonar_pos[1])**2)
                 list_distance = np.append(list_distance, dist)
@@ -289,21 +330,20 @@ class sonarBasedNetCenterDetection:
         
 
         idx_min = np.argmin(list_distance)
-        distance_net_px = list_distance[idx_min]
         return blob_list, list_centroids, list_distance, idx_min
     
     def checkFirstPost(self, idx_min, blob_list, list_centroids, list_distance):
         post = False
         ### WARNING AUTOMATE THIS VALUE 300
         # Check if the area of the post is not too big
-        if blob_list[idx_min].area < 500:
+        if blob_list[idx_min].area < 700:
             for i in range(0, list_distance.size):
                 if i == idx_min:
                     continue
                 
-                # a lob above of the closest
+                # a blob above of the closest
                 if list_centroids[i, 1] < list_centroids[idx_min, 1]:
-                    if abs(list_centroids[i, 0] - list_centroids[idx_min, 0]) < 100:
+                    if abs(list_centroids[i, 0] - list_centroids[idx_min, 0]) < 70:
                         dist = np.sqrt((list_centroids[i, 0] - list_centroids[idx_min, 0])**2 + (list_centroids[i, 1] - list_centroids[idx_min, 1])**2)
                         if dist < 100:
                             print("\tÉ um Poste")
@@ -320,17 +360,20 @@ class sonarBasedNetCenterDetection:
         idx_second = -1
         
         dist_between_post_px = self.convertMeter2Pixels(img_height, self.dist_between_posts_)
+        """
+            Height difference between 2 posts (in the image)
+            height_diff = Radius - cos(theta)*Radius, where theta = 2*pi/number_of_posts
+        """
+        radius_px = self.convertMeter2Pixels(img_height, self.net_radius_)
+        theta = 2*np.pi/self.number_posts_
+        height_diff = radius_px - np.cos(theta)*radius_px
         for i in range(0, list_distance.size):
             if i == idx_min:
                 continue
-            if blob_list[i].area < 500 and blob_list[i].area > 100:
-                dist = np.sqrt((list_centroids[i, 0] - list_centroids[idx_min, 0])**2 + (list_centroids[i, 1] - list_centroids[idx_min, 1])**2)
-                
-                # error between centroids of both posts must be within a certain threshold
-                if abs(dist - dist_between_post_px) < 10:
-                    # check the Eccentricity of the Blob
-                    # eccentricity = [0,1], when eccentricity = 0 -> blob is a circle
-                    
+            dist = np.sqrt((list_centroids[i, 0] - list_centroids[idx_min, 0])**2 + (list_centroids[i, 1] - list_centroids[idx_min, 1])**2)
+            # error between centroids of both posts must be within a certain threshold
+            if abs(dist - dist_between_post_px) < 10:
+                if abs(list_centroids[i, 1] - list_centroids[idx_min, 1]) < height_diff+5:
                     print("\t\tSECOND POST")
                     second_post = True
                     idx_second = i

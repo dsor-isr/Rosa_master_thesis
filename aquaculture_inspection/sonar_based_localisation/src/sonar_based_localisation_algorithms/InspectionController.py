@@ -48,15 +48,15 @@ class InspectionController():
         
         # if the error is not far from the net do not give input of surge
         # This is to fix the "wavy" behaviour
-        if error_dist > -0.5 and error_dist < 0.3:
-            surge_desired = 0
-        else:
-            surge_desired = -kp_dist*error_dist - ki_dist * self.dt_ * (error_dist - last_error)
-            # Saturate output
-            if surge_desired > 0.7:
-                surge_desired = 0.7
-            elif surge_desired < -0.7:
-                surge_desired = -0.7
+        # if error_dist > -0.5 and error_dist < 0.3:
+        #     surge_desired = 0
+        # else:
+        surge_desired = -kp_dist*error_dist - ki_dist * self.dt_ * (error_dist - last_error)
+        # Saturate output
+        if surge_desired > 0.7:
+            surge_desired = 0.7
+        elif surge_desired < -0.7:
+            surge_desired = -0.7
 
         return surge_desired, error_dist
 
