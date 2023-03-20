@@ -8,7 +8,7 @@ from sonar_based_localisation_algorithms.SonarBasedLocalisationAlgorithm import 
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64, Bool
 from auv_msgs.msg import NavigationStatus, NED
-from sonar_based_localisation.msg import DetectionResults
+from sonar_based_localisation.msg import DetectionResults, FloatArray
 from sonar_based_localisation.srv import ChangeNetRadius
 from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
@@ -73,6 +73,7 @@ class SonarBasedLocalisationNode():
 
         self.last_center_ = None
         self.last_distance_net_ = None
+        self.last_yaw_desired_ = None
         self.counter_outlier_ = 0
         self.estimation_counter_ = 0
     
@@ -106,7 +107,7 @@ class SonarBasedLocalisationNode():
         self.real_distance_px_pub_ = rospy.Publisher('/debug/pixel/real_distance_px', Float64, queue_size=1)
         self.distance_px_pub_ = rospy.Publisher('/debug/pixel/distance_px', Float64, queue_size=1)
         self.error_real_dist_px_pub_ = rospy.Publisher('/debug/pixel/error_real_dist_px', Float64, queue_size=1)
-
+        self.new_center_pub_ = rospy.Publisher('/new_center', FloatArray, queue_size=1)
     def initializeServices(self):
         rospy.loginfo('Initializing Services for SonarBasedLocalisationNode')
         self.distance_param_srv_ = rospy.Service('/change_net_radius', ChangeNetRadius, self.changeNetRadiusSrv)
@@ -181,9 +182,9 @@ class SonarBasedLocalisationNode():
         xp = sonar_pos[0]
         yp = sonar_pos[1]
         # Note that coordinates in body frame are in NED
-        xc_body = (yp-yc) * self.sonar_range_/heigth
+        xc_body = (yp-yc) * self.sonar_range_/heigth + 0.25
         yc_body = (xc-xp) * self.sonar_range_/heigth
-
+ 
         center_pos_body = np.array([[xc_body], [yc_body]]) # Position Center in Body Frame
         pos_vehicle_inertial = np.array([[self.x_], [self.y_]])
 
@@ -212,8 +213,8 @@ class SonarBasedLocalisationNode():
         real_center = np.array([[self.real_center_[0]], [self.real_center_[1]]])
         pos_center_body = np.dot(R_I2B, real_center - vehicle_pos)
 
-        xc_real_px = pos_center_body[1] * img_height / self.sonar_range_ + self.sonar_pos_px__[0]
-        yc_real_px = -pos_center_body[0] * img_height / self.sonar_range_ + self.sonar_pos_px__[1]
+        xc_real_px = pos_center_body[1] * img_height / self.sonar_range_ + self.sonar_pos_px_[0]
+        yc_real_px = -pos_center_body[0] * img_height / self.sonar_range_ + self.sonar_pos_px_[1]
         return np.array([[xc_real_px], [yc_real_px]])
     
     def computeRealDistance(self):
@@ -268,10 +269,13 @@ class SonarBasedLocalisationNode():
         #show regressed circle
         if not_outlier_flag:
             cv.circle(img, (int(xc), int(yc)), int(radius_px), color, 2)
+            # center of the circle
+            cv.circle(img, (int(xc), int(yc)), 2, color, 2)
         else:
             cv.circle(img, (int(xc), int(yc)), int(radius_px), (255, 255, 255), 2)
-        # center of the circle
-        cv.circle(img, (int(xc), int(yc)), 2, color, 2)
+            # center of the circle
+            cv.circle(img, (int(xc), int(yc)), 2, (255, 255, 255), 2)
+        
         
         centroid_post = self.sonar_detector.getCentroidPost()
         if centroid_post is not None:
@@ -296,7 +300,6 @@ class SonarBasedLocalisationNode():
         distance_net_px = int(self.distance_net_ * height / self.sonar_range_)
 
         # Plot Line of distance in image
-        print("Centroid: " + str(int(self.centroid_[0,0])) + "," + str(int(self.centroid_[0,1])))
         cv.circle(img, (int(self.centroid_[0,0]), int(self.centroid_[0,1])), 4, (255, 51, 153), 2)
         cv.line(img, (int(sonar_pos[0]), int(sonar_pos[1])), (int(self.centroid_[0,0]), int(self.centroid_[0,1])), (0, 255, 0), 2)
         cv.line(img, (0, int(self.centroid_[0,1])), (width, int(self.centroid_[0,1])), (153, 255, 51), 2)
@@ -371,18 +374,23 @@ class SonarBasedLocalisationNode():
     def shutdownTimer(self):
         self.timer.shutdown()
 
-    def checkCenterOutlier(self, center):
+    def checkCenterOutlier(self, center, xc, yc):
         d = np.sqrt((self.last_center_[0]-center[0])**2 + (self.last_center_[1]-center[1])**2)
-        if d < 3.0:
+        pos_center_pixels = np.array([xc, yc])
+        yaw_desired = self.computeDesiredYaw(pos_center_pixels, self.sonar_pos_px_, self.yaw_)
+        print("yaw_desierd last" + str(self.last_yaw_desired_))
+        if (d < 2.0):
+            print("383")
             return True
         else:
             self.counter_outlier_ = self.counter_outlier_ + 1
+            print("387")
             return False
     
     # TODO: melhorar isto com a velocidade anterior!
     def checkDistanceOutlier(self):
         if self.last_distance_net_ is not None:
-            if abs(self.last_distance_net_  - self.distance_net_) > 0.4:
+            if abs(self.last_distance_net_  - self.distance_net_) > 0.3:
                 self.distance_net_ = self.last_distance_net_
                 print("Distance outlier")
 
@@ -411,12 +419,16 @@ class SonarBasedLocalisationNode():
 
                 # Compute Real Center in Body Frame
                 pos_center_inertial, sonar_pos, center_pos_body = self.computeCenter(xc, yc, height, width)
-                self.sonar_pos_px__ = sonar_pos
+                self.sonar_pos_px_ = sonar_pos
 
                 not_outlier_flag = True
+                print("423")
                 # Check if the estimation of the center is not too far away from the previous one
-                if self.last_center_ is not None:
-                    not_outlier_flag = self.checkCenterOutlier(pos_center_inertial)
+                if (self.last_center_ is not None) and (self.last_yaw_desired_ is not None):
+                    print("428")
+                    not_outlier_flag = self.checkCenterOutlier(pos_center_inertial, xc, yc)
+                    print("427")
+                print("431")
                 
                 
                 #Center is Valid to Publish info
@@ -425,7 +437,14 @@ class SonarBasedLocalisationNode():
                     #### check estimated center
                     # TODO: Not working, check this
                     if self.distance_net_ < self.dist_critical_:
-                        xc, yc = self.computeNewCenter(xc, yc, height)
+                        xc_new, yc_new = self.computeNewCenter(xc, yc, height)
+                        new_center_msg = FloatArray()
+                        new_center_inertial, _ , _ = self.computeCenter(xc_new, yc_new, height, width)
+                        new_center_msg.new_center = new_center_inertial
+                        self.new_center_pub_.publish(new_center_msg)
+                        xc = xc_new
+                        yc = yc_new
+                        
 
                     
                     info_msg = DetectionResults()
@@ -437,9 +456,13 @@ class SonarBasedLocalisationNode():
                     self.starting_point_ = np.array([xc, yc])
 
                     #update last center
+                    print("459")
                     self.last_center_ = pos_center_inertial
+                    self.last_yaw_desired_, _ = self.computeDesiredYaw(np.array([xc, yc]), self.sonar_pos_px_, self.yaw_)
+                    print("462")
                     self.detection_info_pub_.publish(info_msg)
 
+                print("463")
                 # Show the computed circle
                 self.pubImageWithCircle(xc, yc, pos_center_inertial, sonar_pos, center_pos_body, img, binary_img, not_outlier_flag)
             

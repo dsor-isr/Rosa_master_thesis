@@ -189,7 +189,7 @@ void NpsGazeboRosMultibeamSonar::Load(sensors::SensorPtr _parent,
     this->verticalFOV =
       _sdf->GetElement("verticalFOV")->Get<double>();
   if (!_sdf->HasElement("sonarFreq"))
-    this->sonarFreq = 900e3;  // Blueview P900 [Hz]
+    this->sonarFreq = 100e3;  // Blueview P900 [Hz]
   else
     this->sonarFreq =
       _sdf->GetElement("sonarFreq")->Get<double>();

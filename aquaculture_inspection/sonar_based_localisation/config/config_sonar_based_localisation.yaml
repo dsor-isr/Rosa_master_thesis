@@ -1,7 +1,7 @@
 node_frequency: 10
 
 sonar_range: 15
-sonar_pos_body: [0.25, 0, -0.25]
+sonar_pos_body: [0.22, 0, -0.19]
 
 # Cylinder : 5.625 m
 # Sphere 15 posts:
@@ -25,7 +25,7 @@ sway_desired: 0.15
 k1: 2.0
 k2: 0.00444
 
-kp_dist: 0.05
+kp_dist: 0.03
 ki_dist: 0.0
 
 pos_center: [30, 0]

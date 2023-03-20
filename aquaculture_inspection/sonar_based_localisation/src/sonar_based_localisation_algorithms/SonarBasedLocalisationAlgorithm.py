@@ -166,7 +166,7 @@ class sonarBasedNetCenterDetection:
         #Image Processing
         gray = self.grayFilter(frame)
         bilateral_img = self.bilateralFilter(gray, d=10, sigmaColor=100, sigmaSpace=100)
-        binary_img = self.binaryFilter(bilateral_img, thresh=30, maxval=255)
+        binary_img = self.binaryFilter(bilateral_img, thresh=40, maxval=255)
         
         img_height = binary_img.shape[0]
         img_width = binary_img.shape[1]
@@ -211,23 +211,23 @@ class sonarBasedNetCenterDetection:
         ### Centroid is for debuging
         return distance_pixels, centroid
     
-    # def computeDistanceToNetPixel(self, blob_list, idx_min, sonar_pos):
+    def computeDistanceToNetPixel3(self, blob_list, idx_min, sonar_pos):
 
-    #     blob = blob_list[idx_min]
+        blob = blob_list[idx_min]
 
-    #     blob = blob.coords
-    #     blob_x = blob[:, 1]
-    #     blob_y = blob[:, 0]
-    #     blob = np.transpose([blob_x, blob_y])
+        blob = blob.coords
+        blob_x = blob[:, 1]
+        blob_y = blob[:, 0]
+        blob = np.transpose([blob_x, blob_y])
 
-    #     i_max = np.argmax(blob_y)
-    #     distance_pixels = np.sqrt((blob_y[i_max] - sonar_pos[1])**2)
+        i_max = np.argmax(blob_y)
+        distance_pixels = np.sqrt((blob_y[i_max]-15 - sonar_pos[1])**2)
         
-    #     #just to run
-    #     centroid = np.array([[blob_x[i_max], blob_y[i_max]]])
+        #just to run
+        centroid = np.array([[blob_x[i_max], blob_y[i_max]-15]])
         
-    #     ### Centroid is for debuging
-    #     return distance_pixels, centroid
+        ### Centroid is for debuging
+        return distance_pixels, centroid
         
     def avgDistance(self, points, sonar_pos):
         dist = 0
@@ -289,11 +289,16 @@ class sonarBasedNetCenterDetection:
         sonar_pos = self.computeVehiclePixelPos(img_width, img_height)
     
         blob_list, list_centroids, list_distance, idx_min = self.computeNearestBlob(region_props, sonar_pos)
+        post = self.checkFirstPost(idx_min, blob_list, list_centroids, list_distance)
+        print("list centroids shape: " + str(list_centroids.shape))
+
         
         distance_net_px, centroid = self.computeDistanceToNetPixel(blob_list, idx_min, sonar_pos)
-        
-        #distance_net_px = self.computeDistanceToNetPixel2(blob_list, idx_min, sonar_pos)
         distance = self.convertPixels2Meters(img_height, distance_net_px)
+        if not post and (distance < dist_critical):
+            distance_net_px, centroid = self.computeDistanceToNetPixel3(blob_list, idx_min, sonar_pos)
+            distance = self.convertPixels2Meters(img_height, distance_net_px)
+        
         
         if distance >  dist_critical:        
             points = point_coordinates
@@ -373,7 +378,7 @@ class sonarBasedNetCenterDetection:
             dist = np.sqrt((list_centroids[i, 0] - list_centroids[idx_min, 0])**2 + (list_centroids[i, 1] - list_centroids[idx_min, 1])**2)
             # error between centroids of both posts must be within a certain threshold
             if abs(dist - dist_between_post_px) < 10:
-                if abs(list_centroids[i, 1] - list_centroids[idx_min, 1]) < height_diff+5:
+                if abs(list_centroids[i, 1] - list_centroids[idx_min, 1]) < height_diff+10:
                     print("\t\tSECOND POST")
                     second_post = True
                     idx_second = i

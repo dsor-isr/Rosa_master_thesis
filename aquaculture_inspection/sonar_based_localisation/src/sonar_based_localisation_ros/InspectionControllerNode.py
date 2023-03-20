@@ -149,15 +149,15 @@ class InspectionControllerNode():
             surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_distance_net_, self.kp_dist_, self.ki_dist_)
             
             self.last_distance_net_ = self.distance_net_
-            self.yaw_pub_.publish(yaw_desired)
+            #self.yaw_pub_.publish(yaw_desired)
             
             self.surge_pub_.publish(surge_desired)
             self.error_dist_pub_.publish(error_dist)
             self.avg_dist_pub_.publish(self.avg_distance_)
 
             sway_ref, e_total = self.inspection_controller_.swayReference(self.yaw_, yaw_desired, error_dist, self.sway_desired)
-            self.e_total_pub_.publish(e_total)
-            self.sway_pub_.publish(sway_ref)
+            #self.e_total_pub_.publish(e_total)
+            #self.sway_pub_.publish(sway_ref)
             
             
             

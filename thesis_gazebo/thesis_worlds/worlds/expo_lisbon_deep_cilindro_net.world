@@ -87,7 +87,7 @@
     <include>
       <uri>model://fishing_net_20_posts</uri>
       <name>fishing_net0</name>
-      <pose>0 30 -5 0 0 0</pose>
+      <pose>0 30 -4 0 0 0</pose>
     </include>
 
     <!-- <include>

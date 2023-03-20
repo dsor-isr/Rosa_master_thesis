@@ -24,6 +24,7 @@ add_service_files(
 add_message_files(
     FILES
     DetectionResults.msg
+    FloatArray.msg
 )
 
 generate_messages(
