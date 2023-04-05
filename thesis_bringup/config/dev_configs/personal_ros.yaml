@@ -6,3 +6,10 @@ cooperative/cpf_wifi_server:
 
 cooperative/cpf_wifi_client:
     broadcast_port: 24515
+
+
+controls/inner_loops_pid:
+        topics:
+                subscribers:
+                        state:
+                                "/#vehicle#/nav/filter/state"

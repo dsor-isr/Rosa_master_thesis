@@ -1,1 +1,0 @@
-# Rosa_master_thesis

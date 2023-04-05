@@ -1,6 +1,14 @@
 vehicle_stabilizer:
   references: {'depth': 2.0, 'pitch': 0.0, 'roll': 0.0}
 
+
+open_loop_controller:
+  gain_Fx: 10.0 # surge speed to -> Force Fx N
+  gain_Fy: 10.0 # sway speed to -> Force Fy N
+  gain_Fz: 10.0 # heave speed to -> Force Fz N
+  gain_Tz: 0.10 # yaw-rate speed to -> Torque Tz Nm
+
+
 static_thruster_allocation:
   thrusters:
     # Allocation matrix
@@ -13,6 +21,7 @@ static_thruster_allocation:
                         0.000,  0.000, -1.0,  0.1200,   -0.22,  0.005,     # Thruster 6
                         0.000,  0.000, -1.0, -0.1200,    0.22,  0.005,     # Thruster 7
                         0.000,  0.000, -1.0, -0.1200,   -0.22,  0.005]     # Thruster 8
+    
 
     #Forces (N) = ct[0]*RPM^2 + c[1]*RPM + c[2]
     ctf: [ 0.0000028126, 0.0, 0.0]   # parameters for bluerov (max rpm=3200), eqn -> Thrust = f(rpm)
@@ -36,7 +45,7 @@ inner_loops_pid:
 
     # bypass forces (hard - ignores inner-loop / soft - sums inner-loop and manual forces value)
     # NOTE: set this to false during identification tests (not in normal missions otherwise it might provoke unwanted behaviour)
-    forces_hard_bypass: true
+    forces_hard_bypass: false
 
     # Yaw Params
     controllers:
@@ -63,13 +72,14 @@ inner_loops_pid:
             min_out: -7.0
         yaw:
             debug: true
-            kp: 0.0035
-            ki: 0.00001
-            kd: 0.006
+            kp: 0.01
+            ki: 0.000005
+            kd: 0.035
+            #kd: 0.0 
             max_err:  60.0 # deg
             min_err: -60.0 # deg  
-            max_out:  10.0  # N.m
-            min_out: -10.0
+            max_out:  100.0  # N.m
+            min_out: -100.0
         # Yaw Rate Params
         yaw_rate:
             kp: 0.16
@@ -82,26 +92,30 @@ inner_loops_pid:
         surge:
             # kp: 26.0
             # ki: 1.0
-            kp: 18.0
-            ki: 0.2
-            max_ref:  0.7  # m/s
-            min_ref: -0.7  # m/s
-            max_err:  0.2  # m/s
-            min_err: -0.2  # m/s  
-            max_out:  25.0 # N
-            min_out: -25.0
+            kp: 15.0
+            ki: 0.3
+            kff: 48.0
+            max_ref:  1.2  # m/s
+            min_ref: -1.2  # m/s
+            max_err:  0.5  # m/s
+            min_err: -0.5  # m/s  
+            max_out:  81.0 # N
+            min_out: -81.0
+            debug: true
         # Sway Params
         sway:
             # kp: 26.0
             # ki: 1.0
+            debug: true
             kp: 15.0
-            ki: 0.5 
-            max_ref:  0.5  # m/s
-            min_ref: -0.5  # m/s
-            max_err:  0.2  # m/s
-            min_err: -0.2  # m/s  
-            max_out:  25.0 # N
-            min_out: -25.0
+            ki: 0.3 
+            kff: 48.0
+            max_ref:  1.2  # m/s
+            min_ref: -1.2  # m/s
+            max_err:  0.5  # m/s
+            min_err: -0.5  # m/s  
+            max_out:  81.0 # N
+            min_out: -81.0
         # Heave params
         heave:
             debug: true
@@ -115,11 +129,11 @@ inner_loops_pid:
             min_out: -15.0
         # Depth Params
         depth:
-            kp: 16.0 # 5.0
-            ki: 1.6  # 0.2
-            kd: 60.0 # 4.8
-            max_err:  3.0 # m
-            min_err: -3.0 # m  
+            kp: 20.0 # 5.0
+            ki: 1.0  # 0.2
+            kd: 40.0 # 4.8
+            max_err:  20.0 # m
+            min_err: -20.0 # m  
             max_out:  20.0 # N
             min_out: -20.0
             min_alt: 0.1 # m

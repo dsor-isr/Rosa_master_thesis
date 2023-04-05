@@ -11,6 +11,7 @@ class InspectionController():
         self.k2_ = k2
 
         self.dt_ = dt
+        self.integral_ = 0
         
     
     def computeDesiredYaw(self, center_pos_pixels, sonar_pos, yaw):
@@ -36,8 +37,34 @@ class InspectionController():
             yaw_desired = yaw_desired + 360
 
         return yaw_desired
+    
+    def sat(self, error, min_e, max_e):
+        if error > max_e:
+            error = max_e
+        elif error < min_e:
+            error = min_e
+        return error
 
     def computeDesiredSurge(self, desired_distance, distance, last_distance, kp_dist, ki_dist):
+        
+        # P Controller: u_desired = Kp*(d-d_desired) + ki * e * dt
+        error_dist = -distance + desired_distance
+        error_dist = self.sat(error_dist, -5.0, 2.0)
+        self.integral_ += error_dist * self.dt_
+        
+        surge_desired = -kp_dist*error_dist - ki_dist * self.integral_
+
+        # Saturate output
+        if surge_desired > 0.3:
+            surge_desired = 0.3
+            self.integral_ -= error_dist * self.dt_
+        elif surge_desired < -0.3:
+            surge_desired = -0.3
+            self.integral_ -= error_dist * self.dt_
+
+        return surge_desired, error_dist
+    
+    def computeDesiredThrustX(self, desired_distance, distance, last_distance, kp_dist, ki_dist):
         if last_distance is None:
             last_error = -distance + desired_distance
         else:
@@ -51,14 +78,15 @@ class InspectionController():
         # if error_dist > -0.5 and error_dist < 0.3:
         #     surge_desired = 0
         # else:
-        surge_desired = -kp_dist*error_dist - ki_dist * self.dt_ * (error_dist - last_error)
-        # Saturate output
-        if surge_desired > 0.7:
-            surge_desired = 0.7
-        elif surge_desired < -0.7:
-            surge_desired = -0.7
+        thrust_desired = -kp_dist*error_dist - ki_dist * self.dt_ * (error_dist - last_error)
 
-        return surge_desired, error_dist
+        # Saturate output
+        if thrust_desired > 3:
+            thrust_desired = 3
+        elif thrust_desired < -3:
+            thrust_desired = -3
+
+        return thrust_desired, error_dist
 
 
     """
@@ -67,16 +95,20 @@ class InspectionController():
     def swayReference(self, yaw, yaw_desired, error_dist, sway_desired):
         yaw_error0 = yaw_desired - yaw
         yaw_error = self.wrappYawError(yaw_error0)
-        e_total = self.k1_*error_dist**2 + self.k2_ * yaw_error**2
+        dist_eterm = self.k1_*error_dist**2
+        yaw_eterm = self.k2_ * yaw_error**2
+        e_total = dist_eterm + yaw_eterm
         if e_total > 1:
             sway = 0.0
             print("Sway: 0")
         else:
             bump = np.exp(-1/(1-e_total**2))
             sway = sway_desired * np.exp(1) * bump
+            if sway_desired - sway <= 0.02:
+                sway = sway_desired
             print("Sway: " + str(sway))
         
-        return sway, e_total
+        return sway, e_total, dist_eterm, yaw_eterm
     
     """
         Function to wrap the error in the [0, 360] interval

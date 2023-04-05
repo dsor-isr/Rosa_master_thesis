@@ -114,9 +114,9 @@
       <constant_current>
         <topic>current_velocity</topic>
         <velocity>
-          <mean>0.1</mean>
+          <mean>0.3</mean>
           <min>0</min>
-          <max>0.2</max>
+          <max>0.3</max>
           <mu>0.0</mu>
           <noiseAmp>0.0</noiseAmp>
         </velocity>

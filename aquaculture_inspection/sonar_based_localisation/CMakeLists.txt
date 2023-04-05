@@ -19,6 +19,7 @@ add_service_files(
   ChangeSSEValues.srv
   ChangeDistanceParameters.srv
   ChangeNetRadius.srv
+  ChangeInspectionGains.srv
 )
 
 add_message_files(

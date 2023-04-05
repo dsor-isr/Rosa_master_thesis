@@ -35,10 +35,10 @@
             0       0      0        0    0     1
           </added_mass>
           <!-- Linear damping: see p.31 in Berg2012 -->
-          <linear_damping>-0.1213 -1.1732 -1.1130 -0.5 -0.5 -0.5</linear_damping>
+          <linear_damping>-1.1732 -1.1732 -1.1130 -0.5 -0.5 -0.5</linear_damping>
           <!-- Non-linear damping: see p.30 in Berg2012 -->
           <!--quadratic_damping>-18.18 -21.66 -36.99 -5.55 -5.55 -5.55</quadratic_damping-->
-          <quadratic_damping>-23.9000 -46.2700 -50.2780 -1 -1 -1</quadratic_damping>
+          <quadratic_damping>-46.2700 -46.2700 -50.2780 -1 -1 -1</quadratic_damping>
         </hydrodynamic_model>
       </link>
     </xacro:macro>

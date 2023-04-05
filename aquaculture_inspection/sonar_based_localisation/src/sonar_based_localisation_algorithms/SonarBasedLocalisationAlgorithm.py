@@ -206,8 +206,8 @@ class sonarBasedNetCenterDetection:
         centroid[0,0] = centroid[0,1]
         centroid[0,1] = aux
 
+        #distance_pixels = np.sqrt((centroid[0, 1] - sonar_pos[1])**2 + ((centroid[0, 0] - sonar_pos[0])**2))
         distance_pixels = np.sqrt((centroid[0, 1] - sonar_pos[1])**2)
-
         ### Centroid is for debuging
         return distance_pixels, centroid
     
@@ -295,6 +295,8 @@ class sonarBasedNetCenterDetection:
         
         distance_net_px, centroid = self.computeDistanceToNetPixel(blob_list, idx_min, sonar_pos)
         distance = self.convertPixels2Meters(img_height, distance_net_px)
+        
+        # if post is not detected and the blob is a merge between post and the net
         if not post and (distance < dist_critical):
             distance_net_px, centroid = self.computeDistanceToNetPixel3(blob_list, idx_min, sonar_pos)
             distance = self.convertPixels2Meters(img_height, distance_net_px)
@@ -327,7 +329,7 @@ class sonarBasedNetCenterDetection:
             centroid[0,1] = aux
             
             # filter the small blobs
-            if x.area > 20:
+            if x.area > 5:
                 list_centroids = np.append(list_centroids, centroid, axis=0)
                 dist = np.sqrt((centroid[0, 0] - sonar_pos[0])**2 + (centroid[0, 1] - sonar_pos[1])**2)
                 list_distance = np.append(list_distance, dist)
@@ -378,7 +380,7 @@ class sonarBasedNetCenterDetection:
             dist = np.sqrt((list_centroids[i, 0] - list_centroids[idx_min, 0])**2 + (list_centroids[i, 1] - list_centroids[idx_min, 1])**2)
             # error between centroids of both posts must be within a certain threshold
             if abs(dist - dist_between_post_px) < 10:
-                if abs(list_centroids[i, 1] - list_centroids[idx_min, 1]) < height_diff+10:
+                if abs(list_centroids[i, 1] - list_centroids[idx_min, 1]) < height_diff+15:
                     print("\t\tSECOND POST")
                     second_post = True
                     idx_second = i

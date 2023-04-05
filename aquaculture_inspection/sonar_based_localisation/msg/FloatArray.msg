@@ -1,1 +1,1 @@
-float32[2] new_center
+float32[2] array

@@ -84,6 +84,11 @@
           <deltaR>0.0</deltaR>
         </conversion>
 
+        <!-- <conversion>
+          <type>Basic</type>
+          <rotorConstant>0.0000028126</rotorConstant>
+        </conversion> -->
+
      </plugin>
    </gazebo>
 
