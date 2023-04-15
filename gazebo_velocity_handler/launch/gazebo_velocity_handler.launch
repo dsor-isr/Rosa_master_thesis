@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+
+ <node pkg="gazebo_velocity_handler" type="gazebo_velocity_handler_node" name="gazebo_velocity_handlerNode" respawn="false" output="screen">
+	<rosparam command="load" file="$(find gazebo_velocity_handler)/config/config_gazebo_velocity_handler.yaml"/>
+</node>
+
+</launch>

@@ -14,14 +14,14 @@ dist_between_posts: 2.025
 net_sphere_radius: []
 number_posts: 20
 
-dist_critical: 3.0
+dist_critical: 2.9
 
 distance_of_outliers: 30
 nmin_points: 50
 
 
-desired_distance: 2.5
-sway_desired: 0.2
+desired_distance: 4.0
+sway_desired: 0.5
 current_velocity: [0, 0]
 k1: 1.0
 k2: 0.00444
@@ -29,7 +29,12 @@ k2: 0.00444
 
 #kp_dist: 0.03 # For low speeds
 #kp_dist: 0.3
-kp_dist: 0.08
+
+# kp_dist: 0.08
+# ki_dist: 0.0
+
+# Real Measures
+kp_dist: 0.15
 ki_dist: 0.0
 
 pos_center: [30, 0]

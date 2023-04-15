@@ -174,7 +174,7 @@ class sonarBasedNetCenterDetection:
         point_coordinates = self.getWhitePointsBinaryImg(binary_img)
         
         # Choose the points for the regression
-        chosen_points, distance_net, centroid = self.choosePoints(point_coordinates, binary_img)
+        chosen_points, distance_net, centroid, new_dist = self.choosePoints(point_coordinates, binary_img)
 
         sse_threshold = 0.5
         #Circle Regression
@@ -187,11 +187,11 @@ class sonarBasedNetCenterDetection:
         if xc is None or yc is None:
             detection_flag = False
             validity_center_flag = False
-            return detection_flag, xc, yc, frame, distance_net, point_coordinates, validity_center_flag, binary_img, centroid
+            return detection_flag, xc, yc, frame, distance_net, point_coordinates, validity_center_flag, binary_img, centroid, new_dist
         else:
             detection_flag = True
             validity_center_flag = self.checkValidityCenter(xc, yc, img_height, point_coordinates)
-            return detection_flag, xc, yc, frame, distance_net, chosen_points, validity_center_flag, binary_img, centroid
+            return detection_flag, xc, yc, frame, distance_net, chosen_points, validity_center_flag, binary_img, centroid, new_dist
 
 
     def computeDistanceToNetPixel(self, blob_list, idx_min, sonar_pos):
@@ -275,6 +275,34 @@ class sonarBasedNetCenterDetection:
             else:
                 return True
 
+    def computeNewDist(self, centroid, sonar_pos):
+        x_c = centroid[0, 0]
+        y_c = centroid[0, 1]
+        x_sonar = sonar_pos[0]
+        y_sonar = sonar_pos[1]
+
+        atan_term = np.arctan2(y_sonar - y_c, -(x_sonar - x_c))
+        '''
+            - yaw_rel < 0, if xc < xsonar
+            - yaw_rel > 0, if xc > xsonar
+        '''
+        yaw_rel = np.pi/2 - atan_term
+        theta = abs(yaw_rel)
+        
+        d_centroid = np.sqrt((y_sonar - y_c)**2 + (x_sonar - x_c)**2)
+        d1 = np.sqrt((x_c - x_sonar)**2)
+
+        alpha = np.pi/self.number_posts_
+        h1 = np.tan(alpha) * d1
+        h = np.cos(theta) * d_centroid
+        
+        new_dist = h - h1
+        print("\t\t\tTheta: " + str(theta) + "| new_dist: " + str(new_dist))
+        return new_dist
+    
+    
+
+        
     """
         Function for chosing the adequated points for the regression
     
@@ -291,10 +319,16 @@ class sonarBasedNetCenterDetection:
         blob_list, list_centroids, list_distance, idx_min = self.computeNearestBlob(region_props, sonar_pos)
         post = self.checkFirstPost(idx_min, blob_list, list_centroids, list_distance)
         print("list centroids shape: " + str(list_centroids.shape))
-
         
         distance_net_px, centroid = self.computeDistanceToNetPixel(blob_list, idx_min, sonar_pos)
         distance = self.convertPixels2Meters(img_height, distance_net_px)
+        distance_net_px = list_distance[idx_min]
+        distance = self.convertPixels2Meters(img_height, distance_net_px)
+        
+        # New method to compute distance to the cylinder
+        new_dist_px = self.computeNewDist(centroid, sonar_pos)
+        new_dist = self.convertPixels2Meters(img_height, new_dist_px)
+        
         
         # if post is not detected and the blob is a merge between post and the net
         if not post and (distance < dist_critical):
@@ -310,7 +344,7 @@ class sonarBasedNetCenterDetection:
                 points = self.filterPosts(img_height, blob_list, list_centroids, list_distance, idx_min)
             except:
                 print("EXCEPTION: BLOBS")
-        return points, distance, centroid
+        return points, distance, centroid, new_dist
 
 
     def computeNearestBlob(self, region_props, sonar_pos):

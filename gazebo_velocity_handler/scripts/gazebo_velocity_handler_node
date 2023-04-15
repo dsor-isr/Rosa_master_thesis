@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+
+import gazebo_velocity_handler_ros.GazeboVelocityHandlerNode
+
+if __name__ == '__main__':
+ gazebo_velocity_handler_ros.GazeboVelocityHandlerNode.main()

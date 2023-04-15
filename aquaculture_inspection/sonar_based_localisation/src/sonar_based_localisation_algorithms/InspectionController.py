@@ -3,9 +3,10 @@
 import numpy as np
 
 class InspectionController():
-    def __init__(self, sonar_range, net_radius, k1, k2, dt) -> None:
+    def __init__(self, sonar_range, net_radius, k1, k2, dt, real_center) -> None:
         self.net_radius_ = net_radius
         self.sonar_range_ = sonar_range
+        self.real_center_ = real_center
 
         self.k1_ = k1
         self.k2_ = k2
@@ -53,14 +54,14 @@ class InspectionController():
         self.integral_ += error_dist * self.dt_
         
         surge_desired = -kp_dist*error_dist - ki_dist * self.integral_
-
+        Ka = 2.5
         # Saturate output
         if surge_desired > 0.3:
+            self.integral_ += Ka*(0.3 - surge_desired) * self.dt_
             surge_desired = 0.3
-            self.integral_ -= error_dist * self.dt_
         elif surge_desired < -0.3:
+            self.integral_ += Ka*(-0.3 - surge_desired) * self.dt_
             surge_desired = -0.3
-            self.integral_ -= error_dist * self.dt_
 
         return surge_desired, error_dist
     
@@ -100,13 +101,11 @@ class InspectionController():
         e_total = dist_eterm + yaw_eterm
         if e_total > 1:
             sway = 0.0
-            print("Sway: 0")
         else:
             bump = np.exp(-1/(1-e_total**2))
             sway = sway_desired * np.exp(1) * bump
             if sway_desired - sway <= 0.02:
                 sway = sway_desired
-            print("Sway: " + str(sway))
         
         return sway, e_total, dist_eterm, yaw_eterm
     
@@ -122,6 +121,31 @@ class InspectionController():
             yaw_error = yaw_error_translated
         
         return yaw_error
+    
+    # Wrap Angle to the [min, max] interval
+    def wrapYaw(self, yaw, min_val, max_val):
+        if yaw > max_val:
+            yaw -= 360
+        elif yaw < min_val:
+            yaw += 360
+        return yaw
+    
+
+    def computeRealDesiredYaw(self, x, y, yaw):
+        x_c = self.real_center_[0]
+        y_c = self.real_center_[1]
+
+        atan_term = np.arctan2(y_c - y, (x_c - x))*180/np.pi
+        
+        yaw_desired = atan_term
+
+        # wrapp angle to [0, 360] interval
+        if yaw_desired > 360:
+            yaw_desired = yaw_desired - 360
+        elif yaw_desired < 0:
+            yaw_desired = yaw_desired + 360
+
+        return yaw_desired
 
     
 

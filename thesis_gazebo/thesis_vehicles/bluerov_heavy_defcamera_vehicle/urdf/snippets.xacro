@@ -73,7 +73,7 @@
         <!-- 2) First order model -->
         <dynamics>
           <type>FirstOrder</type>
-          <timeConstant>0.000001</timeConstant>
+          <timeConstant>0.0001</timeConstant>
         </dynamics>
 
         <conversion>

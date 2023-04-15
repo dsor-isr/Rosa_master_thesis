@@ -77,6 +77,7 @@ class SonarBasedLocalisationNode():
         self.distance_dr_ = None
         self.counter_outlier_ = 0
         self.estimation_counter_ = 0
+        self.new_measurement_ = False
     
 
     """
@@ -85,8 +86,8 @@ class SonarBasedLocalisationNode():
     def initializeSubscribers(self):
         rospy.loginfo('Initializing Subscribers for SonarBasedLocalisationNode')
         rospy.Subscriber(self.vehicle_ + '/multibeam/sonar_image_topic', Image, self.image_update_callback, queue_size=5)
+        #rospy.Subscriber(self.vehicle_+'/gazebo/state', NavigationStatus, self.state_callback, queue_size=1)
         rospy.Subscriber(self.vehicle_+'/nav/filter/state', NavigationStatus, self.state_callback, queue_size=1)
-    
     """
     @.@ Member Helper function to set up publishers; 
     """
@@ -99,6 +100,8 @@ class SonarBasedLocalisationNode():
         self.distance_net_pub_ = rospy.Publisher('/detection/distance_net', Float64, queue_size=1)
         self.position_wrapped_pub_ = rospy.Publisher('/position_wrapped', NED, queue_size=1)
 
+        self.new_distance_net_pub_ = rospy.Publisher('/detection/new_distance_net', Float64, queue_size=1)
+
 
         ### TOPICS FOR DEBUGGING
         self.real_distance_pub_ = rospy.Publisher('/debug/real_distance', Float64, queue_size=1)
@@ -108,6 +111,7 @@ class SonarBasedLocalisationNode():
         self.distance_px_pub_ = rospy.Publisher('/debug/pixel/distance_px', Float64, queue_size=1)
         self.error_real_dist_px_pub_ = rospy.Publisher('/debug/pixel/error_real_dist_px', Float64, queue_size=1)
         self.new_center_pub_ = rospy.Publisher('/new_center', FloatArray, queue_size=1)
+        
     def initializeServices(self):
         rospy.loginfo('Initializing Services for SonarBasedLocalisationNode')
         self.distance_param_srv_ = rospy.Service('/change_net_radius', ChangeNetRadius, self.changeNetRadiusSrv)
@@ -133,6 +137,9 @@ class SonarBasedLocalisationNode():
             self.starting_point_ = self.computeInitialPos(height, sonar_pos)
         # sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, height)
         # self.starting_point_ = self.computeInitialPos(height, sonar_pos)
+
+        self.new_measurement_ = True
+        self.last_measure_time_ = rospy.get_time()
 
     
     """
@@ -241,6 +248,14 @@ class SonarBasedLocalisationNode():
         yc_new = yc + l*np.cos(alpha)
         return xc_new, yc_new
 
+
+    def computeNewDist(self, xc, yc, sonar_pos, height, net_radius):
+        x_sonar = sonar_pos[0]
+        y_sonar = sonar_pos[1]
+        net_radius_px = self.sonar_detector.convertMeter2Pixels(height, net_radius)
+        y = np.sqrt(net_radius_px**2 - (x_sonar - xc)**2) + yc
+        dist = self.sonar_detector.convertPixels2Meters(height, y_sonar - y)
+        return dist
         
     '''
         Display Computed Circle info in the Sonar image
@@ -389,10 +404,23 @@ class SonarBasedLocalisationNode():
     
     # TODO: melhorar isto com a velocidade anterior!
     def checkDistanceOutlier(self):
+        atual_time = rospy.get_time()
+        
         if self.last_distance_net_ is not None:
             if abs(self.last_distance_net_  - self.distance_net_) > 0.35:
-                self.distance_net_ = self.last_distance_net_ - self.dt_ * self.surge_
+                dt = atual_time - self.last_measure_time_
+                self.distance_net_ = self.last_distance_net_ - dt * self.surge_
+                self.last_distance_net_ = self.distance_net_
+                self.last_measure_time_ = atual_time
                 print("Distance outlier")
+            
+            elif abs(self.surge_) < 0.03:
+                if abs(self.last_distance_net_  - self.distance_net_) > 0.2:
+                    dt = atual_time - self.last_measure_time_
+                    self.distance_net_ = self.last_distance_net_ - dt * self.surge_
+                    self.last_distance_net_ = self.distance_net_
+                    self.last_measure_time_ = atual_time
+                    print("Distance outlier")
             
             self.distance_dr_ = None
  
@@ -403,13 +431,12 @@ class SonarBasedLocalisationNode():
         try:
             # Compute Center of the Fishing Net in the Sonar Image
             try:
-                detected_flag, xc, yc, img, self.distance_net_, self.point_coordinates_, validity_center_flag, binary_img, self.centroid_ = \
+                detected_flag, xc, yc, img, self.distance_net_, self.point_coordinates_, validity_center_flag, binary_img, self.centroid_, new_dist = \
                     self.sonar_detector.detect_circle(self.cv_image_, self.d_outlier_, self.nmin_points_, self.starting_point_)
             except:
                 print("Exception: DETECT CIRCLE")
 
             self.detection_flag_pub_.publish(detected_flag)
-            
 
             self.checkDistanceOutlier()
 
@@ -434,14 +461,15 @@ class SonarBasedLocalisationNode():
                     self.counter_outlier_ = 0
                 
                 #Center is Valid to Publish info
-                if validity_center_flag and not_outlier_flag:
-                    
+                print("Validity Center: " + str(validity_center_flag) + "|nott outlier: " + str(not_outlier_flag) + "| new measurement: " + str(self.new_measurement_) )
+                if validity_center_flag and not_outlier_flag and self.new_measurement_:
+
                     #### check estimated center
                     # TODO: Not working, check this
                     if self.distance_net_ < self.dist_critical_:
                         xc_new, yc_new = self.computeNewCenter(xc, yc, height)
                         xc = xc_new
-                        yc = yc_new    
+                        yc = yc_new
                         
                         
                     new_center_msg = FloatArray()
@@ -449,8 +477,6 @@ class SonarBasedLocalisationNode():
                     new_center_msg.array = new_center_inertial
                     self.new_center_pub_.publish(new_center_msg)
                     
-                        
-
                     
                     info_msg = DetectionResults()
                     info_msg.center_pixels = [xc, yc]
@@ -465,6 +491,7 @@ class SonarBasedLocalisationNode():
                     self.last_yaw_desired_, _ = self.computeDesiredYaw(np.array([xc, yc]), self.sonar_pos_px_, self.yaw_)
                     
                     self.detection_info_pub_.publish(info_msg)
+                    self.new_measurement_ = False
 
                 # Show the computed circle
                 self.pubImageWithCircle(xc, yc, pos_center_inertial, sonar_pos, center_pos_body, img, binary_img, not_outlier_flag)
@@ -486,7 +513,6 @@ class SonarBasedLocalisationNode():
                 img_msg = self.bridge_.cv2_to_imgmsg(img, "bgr8")
                 self.detection_image_pub_.publish(img_msg)
 
-            #print("Measure Counter | Outlier:" + str(self.estimation_counter_) + "|" + str(self.counter_outlier_))
 
             # FOR DEBUG
             real_center_px = self.computeRealCenterImg(height)
@@ -508,6 +534,8 @@ class SonarBasedLocalisationNode():
             """
             self.distance_net_pub_.publish(self.distance_net_)
             self.last_distance_net_ = self.distance_net_
+            self.new_distance_net_pub_.publish(new_dist)
+            
             
         except:
             print("EXCEPTION: All needed values are not available")
