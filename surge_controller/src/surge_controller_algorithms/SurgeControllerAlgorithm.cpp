@@ -102,8 +102,8 @@ float PID_Controller::computeCommand(float error_p, float ref_value, float durat
   return out;
 }
 
-void PID_Controller::setAddedMass(double m, double Xu_dot){
-    m_v_ = m - Xu_dot;
+void PID_Controller::setAddedMass(double m, double Yu_dot){
+    m_v_ = m - Yu_dot;
 }
 
 

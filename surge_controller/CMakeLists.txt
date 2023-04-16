@@ -19,6 +19,7 @@ add_compile_options(-std=c++17 -Wall -O3)
 add_service_files(
   FILES
   ChangeSurgeInnerGains.srv
+  ChangeSurgeFFGains.srv
 )
 
 generate_messages(DEPENDENCIES std_msgs)

@@ -12,4 +12,4 @@ min_out: -81.0
 debug: true
 
 m: 11.5 #kg
-Xu_dot: -27.08
+Yu_dot: -25.952

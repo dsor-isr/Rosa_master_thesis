@@ -34,8 +34,9 @@ k2: 0.00444
 # ki_dist: 0.0
 
 # Real Measures
-kp_dist: 0.15
+kp_dist: 0.1
 ki_dist: 0.0
+kd_dist: 0.0
 
 pos_center: [30, 0]
 utm_pos_inertial: [4290794.43, 491936.56]

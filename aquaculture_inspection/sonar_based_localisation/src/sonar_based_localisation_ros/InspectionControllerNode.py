@@ -55,6 +55,7 @@ class InspectionControllerNode():
         # Distance Controller
         self.kp_dist_ = rospy.get_param('~kp_dist')
         self.ki_dist_ = rospy.get_param('~ki_dist')
+        self.kd_dist_ = rospy.get_param('~kd_dist')
 
         self.utm_pos_inertial_ = rospy.get_param('~utm_pos_inertial')
         self.vehicle_ = rospy.get_param('~Vehicle')
@@ -76,6 +77,9 @@ class InspectionControllerNode():
 
         self.sway_ref_ = None
         self.sonar_pos_body_ = rospy.get_param('~sonar_pos_body')
+
+        self.last_distance_time_ = None
+        self.last_error_ = None
     """
     @.@ Member Helper function to set up subscribers; 
     """
@@ -364,16 +368,22 @@ class InspectionControllerNode():
     """
     def timerIterCallback(self, event=None):
         try:
-            
+            tnow = rospy.get_time()
             if self.last_time_measure_ is not None:
                 yaw_smooth = self.yawSmoothFcn(1.0, False)
                 self.yaw_pub_.publish(yaw_smooth)
                 self.last_yaw_pub_ = yaw_smooth
             
+            if self.last_distance_time_ is None:
+                duration = 0
+            else:
+                duration = tnow - self.last_distance_time_
+
             # Desired Surge
-            surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_distance_net_, self.kp_dist_, self.ki_dist_)
+            surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_error_, duration, self.kp_dist_, self.ki_dist_, self.kd_dist_)
             self.surge_pub_.publish(surge_desired)
             
+            print("387")
             #Check if its in aproaching phase
             sway_ref, e_total, dist_eterm, yaw_eterm = self.inspection_controller_.swayReference(self.yaw_, self.last_yaw_desired_, error_dist, self.sway_desired)
             
@@ -395,18 +405,22 @@ class InspectionControllerNode():
             self.error_dist_pub_.publish(error_dist)
             self.avg_dist_pub_.publish(self.avg_distance_)
             self.desired_dist_pub_.publish(self.desired_distance_)
+
+            self.last_distance_time_ = tnow
+            self.last_distance_net_ = self.distance_net_
             
         except:
             print("EXCEPTION: Not all variables defined to compute desired yaw!")
 
 
     def changeDistParamService(self, request):
-        if request.kp_dist < 0 or request.ki_dist < 0 or request.desired_distance <= 0:
+        if request.kp_dist < 0 or request.ki_dist < 0 or request.kd_dist < 0 or request.desired_distance <= 0:
             success = False
             message = "The values can't be negative"
         else:
             self.kp_dist_ = request.kp_dist
             self.ki_dist_ = request.ki_dist
+            self.kd_dist_ = request.kd_dist
             self.desired_distance_ = request.desired_distance
             success = True
             message = "Distance Parameters changed successfuly"

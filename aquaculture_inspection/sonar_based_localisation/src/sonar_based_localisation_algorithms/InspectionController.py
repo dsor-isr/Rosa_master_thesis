@@ -46,21 +46,28 @@ class InspectionController():
             error = min_e
         return error
 
-    def computeDesiredSurge(self, desired_distance, distance, last_distance, kp_dist, ki_dist):
-        
+    def computeDesiredSurge(self, desired_distance, distance, last_error, duration, kp_dist, ki_dist, kd_dist):
+        print("Compute SURGE")
         # P Controller: u_desired = Kp*(d-d_desired) + ki * e * dt
         error_dist = -distance + desired_distance
         error_dist = self.sat(error_dist, -5.0, 2.0)
-        self.integral_ += error_dist * self.dt_
         
-        surge_desired = -kp_dist*error_dist - ki_dist * self.integral_
+        print("55")
+        self.integral_ += error_dist * duration
+        print("57")
+        if last_error is not None:    
+            derivative = (error_dist - last_error) / duration
+        else:
+            derivative = 0
+        
+        surge_desired = -kp_dist*error_dist - ki_dist * self.integral_ - kd_dist * derivative
         Ka = 2.5
         # Saturate output
         if surge_desired > 0.3:
-            self.integral_ += Ka*(0.3 - surge_desired) * self.dt_
+            self.integral_ += Ka*(0.3 - surge_desired) * duration
             surge_desired = 0.3
         elif surge_desired < -0.3:
-            self.integral_ += Ka*(-0.3 - surge_desired) * self.dt_
+            self.integral_ += Ka*(-0.3 - surge_desired) * duration
             surge_desired = -0.3
 
         return surge_desired, error_dist

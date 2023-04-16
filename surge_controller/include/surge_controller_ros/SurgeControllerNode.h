@@ -22,6 +22,7 @@ Developers: #DSORTeam -> @tecnico.ulisboa.pt Instituto Superior Tecnico
 #include <auv_msgs/BodyForceRequest.h>
 
 #include "surge_controller/ChangeSurgeInnerGains.h"
+#include "surge_controller/ChangeSurgeFFGains.h"
 /* -------------------------------------------------------------------------*/
 /**
  * @brief  ADD HERE A SMALL DESCRIPTION OF THE NODE'S OBJECTIVE
@@ -162,9 +163,14 @@ Developers: #DSORTeam -> @tecnico.ulisboa.pt Instituto Superior Tecnico
 
   // @.@ Services declaration
   ros::ServiceServer change_gains_srv_;
+  ros::ServiceServer change_ff_gains_srv_;
   bool changeGainsService(
     surge_controller::ChangeSurgeInnerGains::Request &req,
     surge_controller::ChangeSurgeInnerGains::Response &res);
+
+  bool changeFFGainsService(
+    surge_controller::ChangeSurgeFFGains::Request &req,
+    surge_controller::ChangeSurgeFFGains::Response &res);
 
 
   // @.@ Member helper functions

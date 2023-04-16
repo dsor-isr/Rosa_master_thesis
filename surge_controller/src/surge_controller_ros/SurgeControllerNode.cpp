@@ -58,8 +58,8 @@ SurgeControllerNode::SurgeControllerNode(ros::NodeHandle *nodehandle, ros::NodeH
   double m = FarolGimmicks::getParameters<double>(
     this->nh_, "/SurgeControllerNode/m");
 
-  double Xu_dot = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/Xu_dot");
+  double Yu_dot = FarolGimmicks::getParameters<double>(
+    this->nh_, "/SurgeControllerNode/Yu_dot");
 
   max_ref_value_ = FarolGimmicks::getParameters<double>(
     this->nh_, "/SurgeControllerNode/max_ref");
@@ -73,7 +73,7 @@ SurgeControllerNode::SurgeControllerNode(ros::NodeHandle *nodehandle, ros::NodeH
 
   this->surge_controller_ = std::make_unique<PID_Controller>(kp, ki, kd, kff, kff_d, kff_lin_drag, kff_quad_drag, max_err, max_out, min_err, min_out);
   
-  this->surge_controller_->setAddedMass(m, Xu_dot);
+  this->surge_controller_->setAddedMass(m, Yu_dot);
 
   this->last_cmd_ = ros::Time::now();
   // initialize variables
@@ -140,6 +140,7 @@ void SurgeControllerNode::initializePublishers() {
 void SurgeControllerNode::initializeServices() {
   ROS_INFO("Initializing Services for SurgeControllerNode");
   change_gains_srv_ = nh_.advertiseService("/surge_controller/change_inner_gains", &SurgeControllerNode::changeGainsService, this);
+  change_ff_gains_srv_ = nh_.advertiseService("/surge_controller/change_ff_gains", &SurgeControllerNode::changeFFGainsService, this);
 }
 
 
@@ -276,6 +277,31 @@ bool SurgeControllerNode::changeGainsService(
   return true;
 }
 
+bool SurgeControllerNode::changeFFGainsService(
+    surge_controller::ChangeSurgeFFGains::Request &req,
+    surge_controller::ChangeSurgeFFGains::Response &res) {
+
+  bool control_changed{false};
+
+  if (req.kff >= 0 && req.kff_d >= 0 && req.kff_lin_drag >= 0 && req.kff_quad_drag >= 0){
+    control_changed = true;
+    this->surge_controller_->setFFGains(req.kff, req.kff_d, req.kff_lin_drag, req.kff_quad_drag);
+  }
+
+  if (!control_changed) {
+    res.success = false;
+    res.message += "Bad control name " + req.inner_type;
+  } else {
+    res.success = true;
+    res.message += "New " + req.inner_type + " gains are" +
+                   " kff: " + std::to_string(req.kff) +
+                   " kff_d: " + std::to_string(req.kff_d) +
+                   " kff_lin_drag: " + std::to_string(req.kff_lin_drag) +
+                   " kff_quad_drag: " + std::to_string(req.kff_quad_drag);
+  }
+
+  return true;
+}
 /*
   @.@ Main
 */

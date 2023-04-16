@@ -1,5 +1,6 @@
 float32 kp_dist
 float32 ki_dist
+float32 kd_dist
 float32 desired_distance
 ---
 bool success
