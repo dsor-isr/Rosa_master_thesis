@@ -3,6 +3,8 @@
 kp: 15.0
 ki: 0.42
 kff: 48.0
+kff_lin_drag: 0.0
+kff_quad_drag: 0.0
 max_ref:  1.2  # m/s
 min_ref: -1.2  # m/s
 max_err:  0.5  # m/s

@@ -86,10 +86,13 @@ class InspectionControllerNode():
     def initializeSubscribers(self):
         rospy.loginfo('Initializing Subscribers for SonarBasedLocalisationNode')
         rospy.Subscriber('/detection/object/detection_results', DetectionResults, self.detection_info_callback, queue_size=1)
-        rospy.Subscriber(self.vehicle_+'/nav/filter/state', NavigationStatus, self.state_callback, queue_size=1)
-        rospy.Subscriber('inspection_flag', Bool, self.inspection_flag_callback, queue_size=1)
-        rospy.Subscriber('/detection/distance_net', Float64, self.distance_callback, queue_size=1)
         
+        rospy.Subscriber(self.vehicle_+'/nav/filter/state', NavigationStatus, self.state_callback, queue_size=1)
+        #rospy.Subscriber(self.vehicle_+'/gazebo/state', NavigationStatus, self.state_callback, queue_size=1)
+
+        rospy.Subscriber('inspection_flag', Bool, self.inspection_flag_callback, queue_size=1)
+        #rospy.Subscriber('/detection/distance_net', Float64, self.distance_callback, queue_size=1)
+        rospy.Subscriber('/debug/real_distance', Float64, self.distance_callback, queue_size=1)
         
     
     """
@@ -177,7 +180,115 @@ class InspectionControllerNode():
         self.last_time_pub_ = actual_time      
         return yaw_ref
     
+
+    def addDistance(self, distance):
+        if self.distance_array_ is None:
+            self.distance_array_ = np.array([distance])
+        elif self.distance_array_.size == 20:
+            #delete oldest value in idx = 0
+            aux_array = np.array([self.distance_array_[1:]])
+            self.distance_array_ = np.append(aux_array, distance)
+        else:
+            self.distance_array_ = np.append(self.distance_array_, distance)
     
+    def avgDistance(self):
+        return np.sum(self.distance_array_)/self.distance_array_.size
+
+
+    def computeRotationMatrix(self, yaw):
+        yaw_radians = np.deg2rad(yaw)
+        R = np.array([[np.cos(yaw_radians), -np.sin(yaw_radians)], [np.sin(yaw_radians), np.cos(yaw_radians)]])
+        return R
+
+
+    def makeNewNavState(self, data):
+        current_body = self.computeBodyCurrent()
+        state_msg = NavigationStatus()
+        state_msg = data
+        state_msg.body_velocity.x -= current_body[0,0]
+        state_msg.body_velocity.y -= current_body[1,0]
+        self.new_filter_state_pub_.publish(state_msg)
+    
+    
+    def computeBodyCurrent(self):
+        R = self.computeRotationMatrix(self.yaw_)
+        R_I2B = np.transpose(R)
+        current_inertial = np.array([[self.current_vel_[0]], [self.current_vel_[1]]])
+        current_body = np.dot(R_I2B, current_inertial)
+        return current_body
+    
+    
+    def approachPhase(self):
+        if abs(self.distance_net_-self.desired_distance_) < 0.05 and self.surge_ < 0.01:
+            self.approach_flag_ = False
+    
+    def computeRealDistance(self, yaw):
+        R = self.computeRotationMatrix(yaw)
+        pos_vehicle_inertial = np.array([[self.x_], [self.y_]])
+        pos_sonar_body = np.array([[self.sonar_pos_body_[0]], [self.sonar_pos_body_[1]]])
+        pos_sonar_inertial = np.dot(R, pos_sonar_body) + pos_vehicle_inertial
+        dist_center = np.sqrt((pos_sonar_inertial[0] - self.real_center_[0])**2 + (pos_sonar_inertial[1] - self.real_center_[1])**2)
+        d = dist_center - self.net_radius_
+        d = d[0]
+        return d
+
+
+    """
+    @.@ Member helper function to shutdown timer;
+    """
+    def shutdownTimer(self):
+        self.timer.shutdown()
+
+
+    """
+    @.@ Timer iter callback. Where the magic should happen
+    """
+    def timerIterCallback(self, event=None):
+        try:
+            tnow = rospy.get_time()
+            if self.last_time_measure_ is not None:
+                yaw_smooth = self.yawSmoothFcn(1.0, False)
+                self.yaw_pub_.publish(yaw_smooth)
+                self.last_yaw_pub_ = yaw_smooth
+            
+            if self.last_distance_time_ is None:
+                duration = 0
+            else:
+                duration = tnow - self.last_distance_time_
+
+            # Desired Surge
+            surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_error_, duration, self.kp_dist_, self.ki_dist_, self.kd_dist_)
+            self.surge_pub_.publish(surge_desired)
+            
+            #Check if its in aproaching phase
+            sway_ref, e_total, dist_eterm, yaw_eterm = self.inspection_controller_.swayReference(self.yaw_, self.last_yaw_desired_, error_dist, self.sway_desired)
+            
+            self.approachPhase()
+            if self.approach_flag_:
+                sway_ref = 0.0
+            
+            self.sway_pub_.publish(sway_ref)
+            self.sway_ref_ = sway_ref
+
+            # update last distance to net
+            self.last_distance_net_ = self.distance_net_
+
+            # DEBUG TERMS
+            self.e_total_pub_.publish(e_total)
+            self.dist_eterm_pub_.publish(dist_eterm)
+            self.yaw_eterm_pub_.publish(yaw_eterm)
+            self.error_dist_pub_.publish(error_dist)
+            self.avg_dist_pub_.publish(self.avg_distance_)
+            self.desired_dist_pub_.publish(self.desired_distance_)
+
+            self.last_distance_time_ = tnow
+            self.last_distance_net_ = self.distance_net_
+            
+        except:
+            print("EXCEPTION: Not all variables defined to compute desired yaw!")
+
+
+
     # Rate of receiving is about 1 second
     def detection_info_callback(self, data):
         self.center_pixels_ = data.center_pixels
@@ -205,7 +316,7 @@ class InspectionControllerNode():
             yaw_desired_dr = self.last_yaw_desired_ - arc_angle
 
             # Check Outlier
-            if abs(yaw_error_wrap) > arc_angle + 3:
+            if abs(yaw_error_wrap) > arc_angle + 4:
                 # Update with Deadreckoning
                 # Approximate the path to a arc of circunference
                 print("Outlier YAW! Error: " + str(yaw_error_wrap) + "-> Using Deadreckoning")
@@ -248,56 +359,6 @@ class InspectionControllerNode():
         self.addDistance(self.distance_net_)
         self.avg_distance_ = self.avgDistance()
 
-    def addDistance(self, distance):
-        if self.distance_array_ is None:
-            self.distance_array_ = np.array([distance])
-        elif self.distance_array_.size == 20:
-            #delete oldest value in idx = 0
-            aux_array = np.array([self.distance_array_[1:]])
-            self.distance_array_ = np.append(aux_array, distance)
-        else:
-            self.distance_array_ = np.append(self.distance_array_, distance)
-    
-    def avgDistance(self):
-        return np.sum(self.distance_array_)/self.distance_array_.size
-
-
-    def computeRotationMatrix(self, yaw):
-        yaw_radians = np.deg2rad(yaw)
-        R = np.array([[np.cos(yaw_radians), -np.sin(yaw_radians)], [np.sin(yaw_radians), np.cos(yaw_radians)]])
-        return R
-
-
-    def makeNewNavState(self, data):
-        current_body = self.computeBodyCurrent()
-        state_msg = NavigationStatus()
-        state_msg = data
-        state_msg.body_velocity.x -= current_body[0,0]
-        state_msg.body_velocity.y -= current_body[1,0]
-        self.new_filter_state_pub_.publish(state_msg)
-    
-    
-    def computeBodyCurrent(self):
-        R = self.computeRotationMatrix(self.yaw_)
-        R_I2B = np.transpose(R)
-        current_inertial = np.array([[self.current_vel_[0]], [self.current_vel_[1]]])
-        current_body = np.dot(R_I2B, current_inertial)
-        return current_body
-    
-    
-    def approachPhase(self):
-        if abs(self.distance_net_-self.desired_distance_) < 0.1 and self.surge_ < 0.03:
-            self.approach_flag_ = False
-    
-    def computeRealDistance(self, yaw):
-        R = self.computeRotationMatrix(yaw)
-        pos_vehicle_inertial = np.array([[self.x_], [self.y_]])
-        pos_sonar_body = np.array([[self.sonar_pos_body_[0]], [self.sonar_pos_body_[1]]])
-        pos_sonar_inertial = np.dot(R, pos_sonar_body) + pos_vehicle_inertial
-        dist_center = np.sqrt((pos_sonar_inertial[0] - self.real_center_[0])**2 + (pos_sonar_inertial[1] - self.real_center_[1])**2)
-        d = dist_center - self.net_radius_
-        d = d[0]
-        return d
     
     def state_callback(self, data):
         self.surge_ = data.body_velocity.x
@@ -347,70 +408,9 @@ class InspectionControllerNode():
         # self.yaw_pub_.publish(yaw_desired_real)
         # self.last_yaw_desired_ = yaw_desired_real
 
-        
-        print("Yaw Desired: " + str(self.last_yaw_desired_))
-
-
 
     def inspection_flag_callback(self, data):
         self.inspection_flag_ = data.data
-
-
-    """
-    @.@ Member helper function to shutdown timer;
-    """
-    def shutdownTimer(self):
-        self.timer.shutdown()
-
-
-    """
-    @.@ Timer iter callback. Where the magic should happen
-    """
-    def timerIterCallback(self, event=None):
-        try:
-            tnow = rospy.get_time()
-            if self.last_time_measure_ is not None:
-                yaw_smooth = self.yawSmoothFcn(1.0, False)
-                self.yaw_pub_.publish(yaw_smooth)
-                self.last_yaw_pub_ = yaw_smooth
-            
-            if self.last_distance_time_ is None:
-                duration = 0
-            else:
-                duration = tnow - self.last_distance_time_
-
-            # Desired Surge
-            surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_error_, duration, self.kp_dist_, self.ki_dist_, self.kd_dist_)
-            self.surge_pub_.publish(surge_desired)
-            
-            print("387")
-            #Check if its in aproaching phase
-            sway_ref, e_total, dist_eterm, yaw_eterm = self.inspection_controller_.swayReference(self.yaw_, self.last_yaw_desired_, error_dist, self.sway_desired)
-            
-            self.approachPhase()
-            if self.approach_flag_:
-                sway_ref = 0.0
-            
-            self.sway_pub_.publish(sway_ref)
-            self.sway_ref_ = sway_ref
-
-            print("Last distance")
-            # update last distance to net
-            self.last_distance_net_ = self.distance_net_
-
-            # DEBUG TERMS
-            self.e_total_pub_.publish(e_total)
-            self.dist_eterm_pub_.publish(dist_eterm)
-            self.yaw_eterm_pub_.publish(yaw_eterm)
-            self.error_dist_pub_.publish(error_dist)
-            self.avg_dist_pub_.publish(self.avg_distance_)
-            self.desired_dist_pub_.publish(self.desired_distance_)
-
-            self.last_distance_time_ = tnow
-            self.last_distance_net_ = self.distance_net_
-            
-        except:
-            print("EXCEPTION: Not all variables defined to compute desired yaw!")
 
 
     def changeDistParamService(self, request):

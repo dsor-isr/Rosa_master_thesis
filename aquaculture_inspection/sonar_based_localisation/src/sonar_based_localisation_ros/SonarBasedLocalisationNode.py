@@ -86,6 +86,7 @@ class SonarBasedLocalisationNode():
     def initializeSubscribers(self):
         rospy.loginfo('Initializing Subscribers for SonarBasedLocalisationNode')
         rospy.Subscriber(self.vehicle_ + '/multibeam/sonar_image_topic', Image, self.image_update_callback, queue_size=5)
+        
         #rospy.Subscriber(self.vehicle_+'/gazebo/state', NavigationStatus, self.state_callback, queue_size=1)
         rospy.Subscriber(self.vehicle_+'/nav/filter/state', NavigationStatus, self.state_callback, queue_size=1)
     """
@@ -375,6 +376,7 @@ class SonarBasedLocalisationNode():
 
         self.x_ = data.position.north - self.utm_pos_inertial_[0]
         self.y_ = data.position.east - self.utm_pos_inertial_[1]
+        
         self.depth_ = data.position.depth
 
         msg = NED()

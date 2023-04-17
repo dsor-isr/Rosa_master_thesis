@@ -113,6 +113,7 @@ void SurgeControllerNode::initializeSubscribers() {
   ROS_INFO("Initializing Subscribers for SurgeControllerNode");
 
   std::string state_topic = "/bluerov_heavy0/nav/filter/state";
+  //std::string state_topic = "/bluerov_heavy0/gazebo/state";
 
   std::string surge_topic = "/bluerov_heavy0/ref/surge";
   

@@ -47,14 +47,11 @@ class InspectionController():
         return error
 
     def computeDesiredSurge(self, desired_distance, distance, last_error, duration, kp_dist, ki_dist, kd_dist):
-        print("Compute SURGE")
         # P Controller: u_desired = Kp*(d-d_desired) + ki * e * dt
         error_dist = -distance + desired_distance
         error_dist = self.sat(error_dist, -5.0, 2.0)
         
-        print("55")
         self.integral_ += error_dist * duration
-        print("57")
         if last_error is not None:    
             derivative = (error_dist - last_error) / duration
         else:

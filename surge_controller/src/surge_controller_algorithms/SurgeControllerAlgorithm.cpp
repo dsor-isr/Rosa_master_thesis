@@ -43,7 +43,7 @@ float PID_Controller::computeCommand(float error_p, float ref_value, float durat
   float pTerm = p_gain_ * error;
   float iTerm = i_gain_ * integral_;
   float dTerm = d_gain_ * (error - pre_error_) / duration;
-  float addedMassTerm = -m_v_ * sway * yaw_rate; 
+  float addedMassTerm = -m_v_ * sway * yaw_rate;
 
   float out = ffTerm + ffDTerm + ffDragTerm + pTerm + iTerm + dTerm + addedMassTerm;
   

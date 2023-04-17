@@ -20,8 +20,8 @@ distance_of_outliers: 30
 nmin_points: 50
 
 
-desired_distance: 4.0
-sway_desired: 0.5
+desired_distance: 2.5
+sway_desired: 0.2
 current_velocity: [0, 0]
 k1: 1.0
 k2: 0.00444
