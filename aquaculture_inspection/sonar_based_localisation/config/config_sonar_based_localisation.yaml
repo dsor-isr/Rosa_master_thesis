@@ -19,9 +19,12 @@ dist_critical: 2.9
 distance_of_outliers: 30
 nmin_points: 50
 
-
 desired_distance: 2.5
 sway_desired: 0.2
+initial_depth: 5.0
+heave_velocity: 0.008
+full_inspection: False
+
 current_velocity: [0, 0]
 k1: 1.0
 k2: 0.00444
@@ -34,8 +37,8 @@ k2: 0.00444
 # ki_dist: 0.0
 
 # Real Measures
-kp_dist: 0.1
-ki_dist: 0.0
+kp_dist: 0.15
+ki_dist: 0.0001
 kd_dist: 0.0
 
 pos_center: [30, 0]
@@ -44,3 +47,26 @@ utm_pos_inertial: [4290794.43, 491936.56]
 inspection_flag: True
 
 Vehicle: /bluerov_heavy0
+
+# Distance Function params
+
+#Angle Post in Rad
+# a: 2.6547
+# b: -8.6533
+# c: 7.0784
+
+#Angle Post in Degrees for 5m
+#a: 1.10043806e-03
+#b: -2.04099243e-01
+#c: 9.49069505e+00
+
+#Angle Post in Degrees for 4m
+#a: 6.42978213e-04
+#b: -1.21269183e-01
+#c: 5.75445473e+00
+
+#Angle Post in Degrees for 2.5m
+a: 3.84249873e-04
+b: -7.02924331e-02
+c: 3.26681881e+00
+

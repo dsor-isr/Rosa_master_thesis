@@ -14,58 +14,58 @@ SurgeControllerNode::SurgeControllerNode(ros::NodeHandle *nodehandle, ros::NodeH
   initializeTimer();
 
   double kp = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/kp");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/kp");
 
   double ki = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/ki");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/ki");
 
   double kd = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/kd", 0.0);
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/kd", 0.0);
 
   double kff = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/kff");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/kff");
 
   double kff_d = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/kff_d", 0.0);
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/kff_d", 0.0);
   
   double kff_lin_drag = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/kff_lin_drag", 0.0);
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/kff_lin_drag", 0.0);
 
   double kff_quad_drag = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/kff_quad_drag", 0.0);
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/kff_quad_drag", 0.0);
 
   double max_err = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/max_err");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/max_err");
     
   double min_err = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/min_err");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/min_err");
 
   double max_out = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/max_out");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/max_out");
 
   double min_out = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/min_out");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/min_out");
 
   double max_ref = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/max_ref");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/max_ref");
   
   double min_ref = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/min_ref");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/min_ref");
 
   this->debug = FarolGimmicks::getParameters<bool>(
-    this->nh_, "/SurgeControllerNode/debug");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/debug");
 
   double m = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/m");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/m");
 
   double Yu_dot = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/Yu_dot");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/Yu_dot");
 
   max_ref_value_ = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/max_ref");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/max_ref");
 
   min_ref_value_ = FarolGimmicks::getParameters<double>(
-    this->nh_, "/SurgeControllerNode/min_ref");
+    this->nh_, "/bluerov_heavy0/SurgeControllerNode/min_ref");
 
   ROS_WARN_STREAM("Kp: " << kp);
   ROS_WARN_STREAM("Ki: " << ki);
@@ -178,7 +178,6 @@ void SurgeControllerNode::timerIterCallback(const ros::TimerEvent &event) {
   double tau_u;
   
   if(!this->validRef()){
-    ROS_WARN_STREAM("NOT VALID");
     if (debug) {
       debug_msg_.ref = 0.0;
       debug_msg_.ref_d = 0.0;
@@ -201,11 +200,7 @@ void SurgeControllerNode::timerIterCallback(const ros::TimerEvent &event) {
     }
   }
   else{
-    ROS_WARN_STREAM("ERROR: " << error_p);
-    ROS_WARN_STREAM("\tSurge value: " << this->surge_);
-    ROS_WARN_STREAM("\tSurge ref: " << this->surge_ref_);
     tau_u = this->surge_controller_->computeCommand(error_p, ref_value, duration, this->sway_, this->yaw_rate_, this->debug);
-    ROS_WARN_STREAM("TAU CALCULADO: " << tau_u);
 
     // update body force request structure
     auv_msgs::BodyForceRequest msg;

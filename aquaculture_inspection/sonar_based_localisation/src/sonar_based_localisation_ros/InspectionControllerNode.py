@@ -7,6 +7,7 @@ from auv_msgs.msg import NavigationStatus, BodyForceRequest
 from std_msgs.msg import Float64, Bool
 from geometry_msgs.msg import Wrench, Pose, Twist
 from gazebo_msgs.msg import ModelStates
+from farol_msgs.msg import mPidDebug
 import numpy as np
 from sonar_based_localisation.srv import ChangeDistanceParameters, ChangeInspectionGains
 
@@ -24,7 +25,7 @@ class InspectionControllerNode():
         
         self.loadParams()
 
-        self.inspection_controller_ = InspectionController(self.sonar_range_, self.net_radius_, self.k1_, self.k2_, self.dt_, self.real_center_)
+        self.inspection_controller_ = InspectionController(self.sonar_range_, self.net_radius_, self.k1_, self.k2_, self.dt_, self.real_center_, self.desired_distance_, self.sway_desired_)
 
         self.initializeSubscribers()
         self.initializePublishers()
@@ -38,16 +39,23 @@ class InspectionControllerNode():
         self.node_frequency = rospy.get_param('~node_frequency', 10)
         self.dt_ = 1/self.node_frequency
 
+        #Net Parameters
         self.real_center_ = rospy.get_param('~pos_center')
         self.net_radius_ = rospy.get_param('~net_radius')
-        self.desired_distance_ = rospy.get_param('~desired_distance')
+        
         self.sonar_range_ = rospy.get_param('~sonar_range')
-        self.sway_desired = rospy.get_param('~sway_desired')
+        
+        self.sway_desired_ = rospy.get_param('~sway_desired')
         self.current_vel_ = rospy.get_param('~current_velocity')
+        self.initial_depth_ = rospy.get_param('~initial_depth')
+        self.heave_velocity_ = rospy.get_param('~heave_velocity')
+        self.full_inspection_ = rospy.get_param('~full_inspection')
+        
+        #Distance
+        self.desired_distance_ = rospy.get_param('~desired_distance')
         self.last_distance_net_ = None
         self.distance_array_ = None
         
-
         # Constants of the Function to choose reference for sway
         self.k1_ = rospy.get_param('~k1')
         self.k2_ = rospy.get_param('~k2')
@@ -60,7 +68,9 @@ class InspectionControllerNode():
         self.utm_pos_inertial_ = rospy.get_param('~utm_pos_inertial')
         self.vehicle_ = rospy.get_param('~Vehicle')
         self.inspection_flag_ = rospy.get_param('~inspection_flag')
-        self.approach_flag_ = True
+        
+        self.approach_flag_ = True # Flag to announce  the approaching phase
+        self.stop_ = False # Flag to stop the movement of the vehicle
 
         # Yaw Ref Smooth Function
         self.yaw_desired_ = None
@@ -74,7 +84,9 @@ class InspectionControllerNode():
         self.last_time_measure_ = None
         self.last_time_pub_ = None
 
-
+        #Real yaw
+        self.last_yaw_ideal_ = None
+        self.last_yaw_ideal_time_ = None
         self.sway_ref_ = None
         self.sonar_pos_body_ = rospy.get_param('~sonar_pos_body')
 
@@ -91,8 +103,9 @@ class InspectionControllerNode():
         #rospy.Subscriber(self.vehicle_+'/gazebo/state', NavigationStatus, self.state_callback, queue_size=1)
 
         rospy.Subscriber('inspection_flag', Bool, self.inspection_flag_callback, queue_size=1)
-        #rospy.Subscriber('/detection/distance_net', Float64, self.distance_callback, queue_size=1)
-        rospy.Subscriber('/debug/real_distance', Float64, self.distance_callback, queue_size=1)
+        rospy.Subscriber('/detection/distance_net', Float64, self.distance_callback, queue_size=1)
+        #rospy.Subscriber('/debug/real_distance', Float64, self.distance_callback, queue_size=1)
+        
         
     
     """
@@ -104,12 +117,16 @@ class InspectionControllerNode():
         self.yaw_pub_ = rospy.Publisher(self.vehicle_ + '/ref/yaw', Float64, queue_size=1)
         self.surge_pub_ = rospy.Publisher(self.vehicle_ + '/ref/surge', Float64, queue_size=1)
         self.sway_pub_ = rospy.Publisher(self.vehicle_ + '/ref/sway', Float64, queue_size=1)
+        self.depth_pub_ = rospy.Publisher(self.vehicle_ + '/ref/depth', Float64, queue_size=1)
+        self.heave_pub_ = rospy.Publisher(self.vehicle_ + '/ref/heave', Float64, queue_size=1)
+
         self.error_dist_pub_ = rospy.Publisher('debug/error_dist', Float64, queue_size=1)
         self.avg_dist_pub_ = rospy.Publisher('debug/avg_dist', Float64, queue_size=1)
         self.e_total_pub_ = rospy.Publisher('/debug/sway_law/e_total', Float64, queue_size=1)
         self.dist_eterm_pub_ = rospy.Publisher('/debug/sway_law/dist_eterm', Float64, queue_size=1)
         self.yaw_eterm_pub_ = rospy.Publisher('/debug/sway_law/yaw_eterm', Float64, queue_size=1)
         self.desired_dist_pub_ = rospy.Publisher('/debug/desired_dist', Float64, queue_size=1)
+        
         self.current_body_pub_ = rospy.Publisher('/current_velocity_body', FloatArray, queue_size=1)
         self.yaw_desired_derivative_pub_ = rospy.Publisher('/yaw_desired_derivative' , Float64, queue_size=1)
         self.yaw_ref_error_pub_ = rospy.Publisher('/yaw_ref_error', Float64, queue_size=1)
@@ -118,6 +135,10 @@ class InspectionControllerNode():
 
         self.debug_dt_pub_ = rospy.Publisher("/debug/dt_between_measures", Float64, queue_size=1)
         self.real_dist_pub_ = rospy.Publisher("/real_distance", Float64, queue_size=1)
+
+        self.debug_distance_pub_ = rospy.Publisher("/debug/distance", mPidDebug, queue_size=1)
+        self.yaw_ideal_pub_ = rospy.Publisher("/debug/yaw_ideal", Float64, queue_size=1)
+        self.yaw_ideal_d_pub_ = rospy.Publisher("/debug/yaw_ideal_d", Float64, queue_size=1)
         
 
     def initializeServices(self):
@@ -184,7 +205,7 @@ class InspectionControllerNode():
     def addDistance(self, distance):
         if self.distance_array_ is None:
             self.distance_array_ = np.array([distance])
-        elif self.distance_array_.size == 20:
+        elif self.distance_array_.size == 50:
             #delete oldest value in idx = 0
             aux_array = np.array([self.distance_array_[1:]])
             self.distance_array_ = np.append(aux_array, distance)
@@ -219,7 +240,7 @@ class InspectionControllerNode():
     
     
     def approachPhase(self):
-        if abs(self.distance_net_-self.desired_distance_) < 0.05 and self.surge_ < 0.01:
+        if abs(self.distance_net_-self.desired_distance_) < 0.1 and self.surge_ < 0.01:
             self.approach_flag_ = False
     
     def computeRealDistance(self, yaw):
@@ -244,10 +265,20 @@ class InspectionControllerNode():
     @.@ Timer iter callback. Where the magic should happen
     """
     def timerIterCallback(self, event=None):
+        # Give Depth so the vehicle is stable
+        if self.approach_flag_ or (not self.full_inspection_):
+            self.depth_pub_.publish(self.initial_depth_)
+        else:
+            if self.depth_< 6.0:
+                self.heave_pub_.publish(self.heave_velocity_)
+            else:
+                self.depth_pub_.publish(6.0)
+                print("Estável a 6 m de depth")
+                self.stop_ = True
         try:
             tnow = rospy.get_time()
             if self.last_time_measure_ is not None:
-                yaw_smooth = self.yawSmoothFcn(1.0, False)
+                yaw_smooth = self.yawSmoothFcn(0.8, False)
                 self.yaw_pub_.publish(yaw_smooth)
                 self.last_yaw_pub_ = yaw_smooth
             
@@ -259,14 +290,15 @@ class InspectionControllerNode():
             # Desired Surge
             surge_desired, error_dist = self.inspection_controller_.computeDesiredSurge(self.desired_distance_, self.distance_net_, self.last_error_, duration, self.kp_dist_, self.ki_dist_, self.kd_dist_)
             self.surge_pub_.publish(surge_desired)
-            
+            self.debug_distance_pub_.publish(self.inspection_controller_.getDebugMsg())
+        
             #Check if its in aproaching phase
-            sway_ref, e_total, dist_eterm, yaw_eterm = self.inspection_controller_.swayReference(self.yaw_, self.last_yaw_desired_, error_dist, self.sway_desired)
+            sway_ref, e_total, dist_eterm, yaw_eterm = self.inspection_controller_.swayReference(self.yaw_, self.last_yaw_pub_, error_dist, self.sway_desired_)
             
             self.approachPhase()
-            if self.approach_flag_:
+            if self.approach_flag_ or self.stop_:
                 sway_ref = 0.0
-            
+
             self.sway_pub_.publish(sway_ref)
             self.sway_ref_ = sway_ref
 
@@ -283,6 +315,7 @@ class InspectionControllerNode():
 
             self.last_distance_time_ = tnow
             self.last_distance_net_ = self.distance_net_
+            self.last_error_ = error_dist
             
         except:
             print("EXCEPTION: Not all variables defined to compute desired yaw!")
@@ -291,12 +324,15 @@ class InspectionControllerNode():
 
     # Rate of receiving is about 1 second
     def detection_info_callback(self, data):
+        #Circle Detection Data
         self.center_pixels_ = data.center_pixels
         self.center_inertial_ = data.center_inertial
         self.sonar_pos_pixels_ = data.sonar_pos_pixels
 
+        # Save last yaw desired
         self.last_yaw_desired_ = self.yaw_desired_
-        #Publish when a new measurement is done
+        
+        #Publish when a NEW measurement is done
         self.yaw_desired_ = self.inspection_controller_.computeDesiredYaw(self.center_pixels_, self.sonar_pos_pixels_, self.yaw_)
 
         
@@ -304,10 +340,18 @@ class InspectionControllerNode():
         if self.last_yaw_desired_ is not None:
             self.actual_time_ = rospy.get_time()            
             dt = self.actual_time_ - self.last_time_measure_
+            
             txt = "Actual time: {actual_time: .5f} | Last Time: {last_time: .5f} | dt: {dt1: .5f}".format(actual_time = self.actual_time_\
                                                 ,last_time=self.last_time_measure_, dt1=dt)
             print(txt)
+            
+            # Correcting Delay of sonar
+            if self.sway_ > 0.5 * self.sway_desired_:
+                yaw_rate_nominal = self.inspection_controller_.computeNominalYawRate()
+                correction_term = yaw_rate_nominal * dt
+                self.yaw_desired_ += correction_term
 
+            # Computing Error between actual and last reference
             yaw_error = self.yaw_desired_ - self.last_yaw_desired_
             yaw_error_wrap = self.wrappYawError(yaw_error)
             
@@ -315,23 +359,39 @@ class InspectionControllerNode():
             arc_angle = (dt * self.sway_ / (self.distance_net_ + self.net_radius_)) * 180 / np.pi
             yaw_desired_dr = self.last_yaw_desired_ - arc_angle
 
+
             # Check Outlier
-            if abs(yaw_error_wrap) > arc_angle + 4:
-                # Update with Deadreckoning
-                # Approximate the path to a arc of circunference
-                print("Outlier YAW! Error: " + str(yaw_error_wrap) + "-> Using Deadreckoning")
-                
-                print("\t\tYaw Desired do Deadreckoning: " + str(yaw_desired_dr)+ "| Yaw Medido: " + str(self.yaw_desired_))
-                self.yaw_desired_ = yaw_desired_dr
-                self.yaw_desired_ = self.inspection_controller_.wrapYaw(self.yaw_desired_, 0, 360)
-                # New error
-                yaw_error = self.yaw_desired_ - self.last_yaw_desired_
-                yaw_error_wrap = self.wrappYawError(yaw_error)
+
+            # If vehicle is not moving sideways -> criteria of outliers tickens
+            if self.sway_ < 0.2*self.sway_desired_:
+                if (yaw_error_wrap < -arc_angle) or (yaw_error_wrap > arc_angle):
+                    # Update with Deadreckoning
+                    # Approximate the path to a arc of circunference
+                    print("Outlier YAW! Error: " + str(yaw_error_wrap) + "-> Using Deadreckoning")
+                    
+                    print("\t\tYaw Desired do Deadreckoning: " + str(yaw_desired_dr)+ "| Yaw Medido: " + str(self.yaw_desired_))
+                    self.yaw_desired_ = yaw_desired_dr
+                    self.yaw_desired_ = self.inspection_controller_.wrapYaw(self.yaw_desired_, 0, 360)
+                    # New error
+                    yaw_error = self.yaw_desired_ - self.last_yaw_desired_
+                    yaw_error_wrap = self.wrappYawError(yaw_error)
+            else:
+                if (yaw_error_wrap < -arc_angle - 2) or (yaw_error_wrap > arc_angle + 2):
+                    # Update with Deadreckoning
+                    # Approximate the path to a arc of circunference
+                    print("2Outlier YAW! Error: " + str(yaw_error_wrap) + "-> Using Deadreckoning")
+                    
+                    print("\t\tYaw Desired do Deadreckoning: " + str(yaw_desired_dr)+ "| Yaw Medido: " + str(self.yaw_desired_))
+                    self.yaw_desired_ = yaw_desired_dr
+                    self.yaw_desired_ = self.inspection_controller_.wrapYaw(self.yaw_desired_, 0, 360)
+                    # New error
+                    yaw_error = self.yaw_desired_ - self.last_yaw_desired_
+                    yaw_error_wrap = self.wrappYawError(yaw_error)
 
 
             # Now that I have the Desired Yaw, Time to smooth the function
             # Warning: I specified the time step duration, but its quite random ~ 1 second
-            yaw_smoothed = self.yawSmoothFcn(1.0, True)
+            yaw_smoothed = self.yawSmoothFcn(0.8, True)
             self.last_yaw_pub_ = yaw_smoothed
 
             self.yaw_pub_.publish(yaw_smoothed)
@@ -354,7 +414,6 @@ class InspectionControllerNode():
         
     def distance_callback(self, data):
         self.distance_net_ = data.data
-
         # Add Distance to the Distance Array
         self.addDistance(self.distance_net_)
         self.avg_distance_ = self.avgDistance()
@@ -369,44 +428,21 @@ class InspectionControllerNode():
         self.y_ = data.position.east - self.utm_pos_inertial_[1]
         self.depth_ = data.position.depth
         self.makeNewNavState(data)
-
-
-        # Compute Real Distance
-        # self.distance_net_ = self.computeRealDistance(self.yaw_)
-        # # Add Distance to the Distance Array
-        # self.addDistance(self.distance_net_)
-        # self.avg_distance_ = self.avgDistance()
-        # self.real_dist_pub_.publish(self.distance_net_)
-
-        # if self.sway_ref_ is not None:
-        #     if self.sway_ref_ > 0:
-        #         if abs(self.sway_ref_ - self.sway_) < 0.01:
-        #             print("\t\t\tSway Estável -  YAW a AnDAR!")
-        #             # Compute Real Desired Yaw
-        #             yaw_desired_real = self.inspection_controller_.computeRealDesiredYaw(self.x_, self.y_, self.yaw_)
-        #             self.yaw_pub_.publish(yaw_desired_real)
-        #             self.last_yaw_desired_ = yaw_desired_real
-
-        #         # Não vai haver problema por causa da approaching phase
-        #         else:
-        #             print("Sway Começou -  YAW PARADO!")
-        #             yaw_desired_real = self.last_yaw_desired_
-        #             self.yaw_pub_.publish(yaw_desired_real)
-        #             self.last_yaw_desired_ = yaw_desired_real
-            
-        #     else:
-        #         yaw_desired_real = self.inspection_controller_.computeRealDesiredYaw(self.x_, self.y_, self.yaw_)
-        #         self.yaw_pub_.publish(yaw_desired_real)
-        #         self.last_yaw_desired_ = yaw_desired_real
-                
-        # else:
-        #     yaw_desired_real = self.inspection_controller_.computeRealDesiredYaw(self.x_, self.y_, self.yaw_)
-        #     self.yaw_pub_.publish(yaw_desired_real)
-        #     self.last_yaw_desired_ = yaw_desired_real
         
-        # yaw_desired_real = self.inspection_controller_.computeRealDesiredYaw(self.x_, self.y_, self.yaw_)
-        # self.yaw_pub_.publish(yaw_desired_real)
-        # self.last_yaw_desired_ = yaw_desired_real
+        yaw_desired_real = self.inspection_controller_.computeRealDesiredYaw(self.x_, self.y_)
+        self.yaw_ideal_pub_.publish(yaw_desired_real)
+
+        #Compute Derivative
+        if self.last_yaw_ideal_time_ is not None:
+            tnow = rospy.get_time()
+            yaw_d = (yaw_desired_real - self.last_yaw_ideal_) / (tnow - self.last_yaw_ideal_time_)
+            self.last_yaw_ideal_time_ = tnow
+            self.yaw_ideal_d_pub_.publish(yaw_d)
+        else:
+            self.last_yaw_ideal_time_ = rospy.get_time()
+        
+        self.last_yaw_ideal_ = yaw_desired_real
+        
 
 
     def inspection_flag_callback(self, data):
@@ -422,6 +458,9 @@ class InspectionControllerNode():
             self.ki_dist_ = request.ki_dist
             self.kd_dist_ = request.kd_dist
             self.desired_distance_ = request.desired_distance
+            # reset integral term
+            #self.inspection_controller_.resetDistIntegralTerm()
+            
             success = True
             message = "Distance Parameters changed successfuly"
         
@@ -434,7 +473,7 @@ class InspectionControllerNode():
         else:
             self.k1_ = request.ke_dist
             self.k2_ = request.ke_yaw
-            self.inspection_controller_ = InspectionController(self.sonar_range_, self.net_radius_, self.k1_, self.k2_, self.dt_, self.real_center_)
+            self.inspection_controller_ = InspectionController(self.sonar_range_, self.net_radius_, self.k1_, self.k2_, self.dt_, self.real_center_, self.desired_distance_, self.sway_desired_)
             success = True
             message = "Inspection Gains changed successfuly"
 

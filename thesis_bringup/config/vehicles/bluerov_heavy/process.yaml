@@ -13,6 +13,7 @@ processes:
             - comms:= false
             - acoustic_data:= false
             - planning:= false 
+            - surge_controller:= true
       dependencies:
             []
     
@@ -95,6 +96,15 @@ processes:
       launch_on_startup: true
       delay_before_start: 1.0
       cmd: 'roslaunch farol_bringup planning.launch'
+      args:
+            - dsor_paths:= true
+      dependencies:
+            []
+
+    - name: 'surge_controller' # Set to true to execute default paths (lines, arc, bernoulli)
+      launch_on_startup: true
+      delay_before_start: 1.0
+      cmd: 'roslaunch surge_controller surge_controller.launch'
       args:
             - dsor_paths:= true
       dependencies:

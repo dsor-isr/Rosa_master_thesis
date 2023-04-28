@@ -62,6 +62,7 @@ class SonarBasedLocalisationNode():
         self.number_posts_ = rospy.get_param('~number_posts')
 
         self.dist_critical_ = rospy.get_param('~dist_critical')
+        self.sway_desired_ = rospy.get_param('~sway_desired')
         
         self.d_outlier_ = rospy.get_param('~distance_of_outliers')
         self.nmin_points_ = rospy.get_param('~nmin_points')
@@ -69,6 +70,12 @@ class SonarBasedLocalisationNode():
         self.starting_point_ = None
 
         self.vehicle_ = rospy.get_param('~Vehicle')
+
+        # Distance Function Corrector Params
+        self.a_ = rospy.get_param('~a')
+        self.b_ = rospy.get_param('~b')
+        self.c_ = rospy.get_param('~c')
+
         self.font_ = cv.FONT_HERSHEY_PLAIN
 
         self.last_center_ = None
@@ -78,6 +85,10 @@ class SonarBasedLocalisationNode():
         self.counter_outlier_ = 0
         self.estimation_counter_ = 0
         self.new_measurement_ = False
+        self.last_angle_ = None
+
+        #Just for debug
+        self.last_img_time_ = None
     
 
     """
@@ -101,17 +112,20 @@ class SonarBasedLocalisationNode():
         self.distance_net_pub_ = rospy.Publisher('/detection/distance_net', Float64, queue_size=1)
         self.position_wrapped_pub_ = rospy.Publisher('/position_wrapped', NED, queue_size=1)
 
-        self.new_distance_net_pub_ = rospy.Publisher('/detection/new_distance_net', Float64, queue_size=1)
+        self.old_distance_net_pub_ = rospy.Publisher('/detection/old_distance_net', Float64, queue_size=1)
 
 
         ### TOPICS FOR DEBUGGING
         self.real_distance_pub_ = rospy.Publisher('/debug/real_distance', Float64, queue_size=1)
-        self.distance_pub_ = rospy.Publisher('/debug/distance', Float64, queue_size=1)
+        self.distance_with_outliers_pub_ = rospy.Publisher('/deberror_distug/distance_with_outliers', Float64, queue_size=1)
         self.error_real_dist_pub_ = rospy.Publisher('/debug/error_real_dist', Float64, queue_size=1)
         self.real_distance_px_pub_ = rospy.Publisher('/debug/pixel/real_distance_px', Float64, queue_size=1)
         self.distance_px_pub_ = rospy.Publisher('/debug/pixel/distance_px', Float64, queue_size=1)
         self.error_real_dist_px_pub_ = rospy.Publisher('/debug/pixel/error_real_dist_px', Float64, queue_size=1)
         self.new_center_pub_ = rospy.Publisher('/new_center', FloatArray, queue_size=1)
+
+        self.angle_post_pub_ = rospy.Publisher('/debug/angle_post', Float64, queue_size=1)
+        self.outlier_flag_pub_ = rospy.Publisher('/debug/outlier_flag', Float64, queue_size=1)
         
     def initializeServices(self):
         rospy.loginfo('Initializing Services for SonarBasedLocalisationNode')
@@ -122,25 +136,6 @@ class SonarBasedLocalisationNode():
     """
     def initializeTimer(self):
         self.timer = rospy.Timer(rospy.Duration(1.0/self.node_frequency),self.timerIterCallback)
-
-
-    def image_update_callback(self, data):
-        try:
-            self.cv_image_ = self.bridge_.imgmsg_to_cv2(data, "bgr8")
-            print("Image Received")
-        except CvBridgeError as e:
-            raise e
-        
-        height = self.cv_image_.shape[0]
-        width = self.cv_image_.shape[1]
-        if self.starting_point_ is None:
-            sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, height)
-            self.starting_point_ = self.computeInitialPos(height, sonar_pos)
-        # sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, height)
-        # self.starting_point_ = self.computeInitialPos(height, sonar_pos)
-
-        self.new_measurement_ = True
-        self.last_measure_time_ = rospy.get_time()
 
     
     """
@@ -230,6 +225,7 @@ class SonarBasedLocalisationNode():
         pos_vehicle_inertial = np.array([[self.x_], [self.y_]])
         pos_sonar_body = np.array([[self.sonar_pos_body_[0]], [self.sonar_pos_body_[1]]])
         pos_sonar_inertial = np.dot(R, pos_sonar_body) + pos_vehicle_inertial
+        
         dist_center = np.sqrt((pos_sonar_inertial[0] - self.real_center_[0])**2 + (pos_sonar_inertial[1] - self.real_center_[1])**2)
         d = dist_center - self.net_radius_
         d = d[0]
@@ -369,28 +365,6 @@ class SonarBasedLocalisationNode():
         self.detection_image_pub_.publish(img_msg)
         
 
-    def state_callback(self, data):
-        self.surge_ = data.body_velocity.x
-        self.sway_ = data.body_velocity.y
-        self.yaw_ = data.orientation.z
-
-        self.x_ = data.position.north - self.utm_pos_inertial_[0]
-        self.y_ = data.position.east - self.utm_pos_inertial_[1]
-        
-        self.depth_ = data.position.depth
-
-        msg = NED()
-        msg.north = self.x_
-        msg.east = self.y_
-        msg.depth = self.depth_
-        self.position_wrapped_pub_.publish(msg)
-
-    """
-    @.@ Member helper function to shutdown timer;
-    """
-    def shutdownTimer(self):
-        self.timer.shutdown()
-
     def checkCenterOutlier(self, center, xc, yc):
         d = np.sqrt((self.last_center_[0]-center[0])**2 + (self.last_center_[1]-center[1])**2)
         pos_center_pixels = np.array([xc, yc])
@@ -401,31 +375,118 @@ class SonarBasedLocalisationNode():
             return True
         else:
             self.counter_outlier_ = self.counter_outlier_ + 1
-            print("OUTLIER")
             return False
     
     # TODO: melhorar isto com a velocidade anterior!
-    def checkDistanceOutlier(self):
+    def checkDistanceOutlier(self, yaw_ideal, angle):
         atual_time = rospy.get_time()
-        
-        if self.last_distance_net_ is not None:
-            if abs(self.last_distance_net_  - self.distance_net_) > 0.35:
+        self.distance_with_outliers_pub_.publish(self.distance_net_)
+        outlier = 0
+        if (self.last_distance_net_ is not None) and (self.last_angle_ is not None):
+            if abs(self.sway_) > 0.8*self.sway_desired_:
+                if abs(self.last_distance_net_  - self.distance_net_) > 0.15:
+                    if (self.last_angle_ - angle) > 25:
+                        print("\t\tNOT Distance outlier3")
+                        outlier = 4
+                    else:
+                        dt = atual_time - self.last_measure_time_
+                        out_dist = self.distance_net_
+                        self.distance_net_ = self.last_distance_net_ - dt * self.surge_
+                        self.last_measure_time_ = atual_time
+                        print("\t\tDistance outlier3")
+                        print("\t\tOutlier Dist: " + str(out_dist) + "| Corrected Dist"+ str(self.distance_net_))
+                        outlier = 3
+                        
+            elif abs(self.last_distance_net_-self.distance_net_) > 0.5:
+                dt = atual_time - self.last_measure_time_
+                out_dist = self.distance_net_
+                print("\t\tDistance outlier1")
+                print("\t\tOUrtlier Dist: " + str(out_dist))
+                self.distance_net_ = self.last_distance_net_ - dt * self.surge_
+                self.last_measure_time_ = atual_time
+                print("\t\tCorrected Dist"+ str(self.distance_net_))
+                outlier = 1
+                
+            
+            # # If the distance does not inccrease is an outlier
+            elif abs(self.sway_) < 0.20*self.sway_desired_ and (self.last_distance_net_-self.distance_net_ < -0.1):
                 dt = atual_time - self.last_measure_time_
                 self.distance_net_ = self.last_distance_net_ - dt * self.surge_
                 self.last_distance_net_ = self.distance_net_
                 self.last_measure_time_ = atual_time
-                print("Distance outlier")
+                print("Distance outlier2")
+                outlier = 2
             
-            elif abs(self.surge_) < 0.03:
-                if abs(self.last_distance_net_  - self.distance_net_) > 0.2:
-                    dt = atual_time - self.last_measure_time_
-                    self.distance_net_ = self.last_distance_net_ - dt * self.surge_
-                    self.last_distance_net_ = self.distance_net_
-                    self.last_measure_time_ = atual_time
-                    print("Distance outlier")
-            
+                    
             self.distance_dr_ = None
- 
+
+        self.outlier_flag_pub_.publish(outlier)
+        self.last_measure_time_ = atual_time
+
+    def computePostAngle(self):
+        centroid = self.centroid_
+        xc = centroid[0,0]
+        yc = centroid[0,1]
+        
+        xs = self.sonar_pos_px_[0]
+        ys = self.sonar_pos_px_[1]
+        
+        angle = np.arctan2(ys - yc, -(xs - xc))
+        return angle
+    
+    def newDistCalc(self, angle, distance_net):
+        correction_term = self.a_ * angle**2 + self.b_ * angle + self.c_
+        new_dist = distance_net - correction_term
+        return new_dist
+    
+
+    def computeRealDesiredYaw(self, x, y):
+        x_c = self.real_center_[0]
+        y_c = self.real_center_[1]
+
+        atan_term = np.arctan2(y_c - y, (x_c - x))*180/np.pi
+        
+        yaw_desired = atan_term
+
+        # wrapp angle to [0, 360] interval
+        if yaw_desired > 360:
+            yaw_desired = yaw_desired - 360
+        elif yaw_desired < 0:
+            yaw_desired = yaw_desired + 360
+
+        return yaw_desired
+
+    
+    def handleDistance(self):
+        angle = self.computePostAngle() * 180 / np.pi
+        self.angle_post_pub_.publish(angle)
+        if self.sway_ > 0.8*self.sway_desired_:
+            new_dist = self.newDistCalc(angle, self.distance_net_)
+            print("New Dist! " + str(new_dist))
+        else:
+            new_dist = self.distance_net_
+            print("Old Dist! " + str(new_dist))
+        
+        old_dist = self.distance_net_
+        self.distance_net_ = new_dist
+
+        yaw_ideal = self.computeRealDesiredYaw(self.x_, self.y_)
+
+        
+        self.checkDistanceOutlier(yaw_ideal, angle)
+        
+        self.old_distance_net_pub_.publish(old_dist)
+        self.distance_net_pub_.publish(self.distance_net_)
+
+        # Compute Real Distance to the Net
+        real_dist_meter = self.computeRealDistance()
+        self.real_distance_pub_.publish(real_dist_meter)
+
+        self.error_real_dist_pub_.publish(real_dist_meter - self.distance_net_)
+
+        self.last_distance_net_ = self.distance_net_
+        self.last_angle_ = angle
+
     """
     @.@ Timer iter callback. Where the magic should happen
     """
@@ -433,14 +494,15 @@ class SonarBasedLocalisationNode():
         try:
             # Compute Center of the Fishing Net in the Sonar Image
             try:
-                detected_flag, xc, yc, img, self.distance_net_, self.point_coordinates_, validity_center_flag, binary_img, self.centroid_, new_dist = \
+                detected_flag, xc, yc, img, self.distance_net_, self.point_coordinates_, validity_center_flag, binary_img, self.centroid_ = \
                     self.sonar_detector.detect_circle(self.cv_image_, self.d_outlier_, self.nmin_points_, self.starting_point_)
             except:
                 print("Exception: DETECT CIRCLE")
 
             self.detection_flag_pub_.publish(detected_flag)
 
-            self.checkDistanceOutlier()
+            self.handleDistance()
+            
 
             # Net Detected
             if detected_flag:
@@ -463,7 +525,7 @@ class SonarBasedLocalisationNode():
                     self.counter_outlier_ = 0
                 
                 #Center is Valid to Publish info
-                print("Validity Center: " + str(validity_center_flag) + "|nott outlier: " + str(not_outlier_flag) + "| new measurement: " + str(self.new_measurement_) )
+                #print("Validity Center: " + str(validity_center_flag) + "|nott outlier: " + str(not_outlier_flag) + "| new measurement: " + str(self.new_measurement_) )
                 if validity_center_flag and not_outlier_flag and self.new_measurement_:
 
                     #### check estimated center
@@ -518,11 +580,8 @@ class SonarBasedLocalisationNode():
 
             # FOR DEBUG
             real_center_px = self.computeRealCenterImg(height)
-            real_dist_meter = self.computeRealDistance()
+            
             radius_px = self.sonar_detector.convertMeter2Pixels(height, self.net_radius_)
-
-            self.real_distance_pub_.publish(real_dist_meter)
-            self.error_real_dist_pub_.publish(real_dist_meter - self.distance_net_)
 
             real_dist_estimated_px = np.sqrt((sonar_pos[0]-real_center_px[0])**2 + (sonar_pos[1]-real_center_px[1])**2)-radius_px
             distance_net_px = int(self.distance_net_ * height / self.sonar_range_)
@@ -531,16 +590,60 @@ class SonarBasedLocalisationNode():
             self.distance_px_pub_.publish(distance_net_px)
             self.error_real_dist_px_pub_.publish(real_dist_estimated_px - distance_net_px)
 
-            """
-                Warning: this is to publish distance net everytime and not only when the detection is valid
-            """
-            self.distance_net_pub_.publish(self.distance_net_)
-            self.last_distance_net_ = self.distance_net_
-            self.new_distance_net_pub_.publish(new_dist)
-            
             
         except:
             print("EXCEPTION: All needed values are not available")
+
+    """
+    @.@ Member helper function to shutdown timer;
+    """
+    def shutdownTimer(self):
+        self.timer.shutdown()
+
+
+    
+    def state_callback(self, data):
+        self.surge_ = data.body_velocity.x
+        self.sway_ = data.body_velocity.y
+        self.yaw_ = data.orientation.z
+
+        self.x_ = data.position.north - self.utm_pos_inertial_[0]
+        self.y_ = data.position.east - self.utm_pos_inertial_[1]
+        
+        self.depth_ = data.position.depth
+
+        msg = NED()
+        msg.north = self.x_
+        msg.east = self.y_
+        msg.depth = self.depth_
+        self.position_wrapped_pub_.publish(msg)
+
+    
+    def image_update_callback(self, data):
+        try:
+            self.cv_image_ = self.bridge_.imgmsg_to_cv2(data, "bgr8")
+            
+            if self.last_img_time_ is None:
+                self.last_img_time_  = rospy.get_time()
+                print("First Image Received")
+            else:
+                tnow = rospy.get_time()
+                dt = tnow - self.last_img_time_
+                print("Img Received ---- dt: " + str(dt))
+                self.last_img_time_ = tnow
+        except CvBridgeError as e:
+            raise e
+        
+        height = self.cv_image_.shape[0]
+        width = self.cv_image_.shape[1]
+        if self.starting_point_ is None:
+            sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, height)
+            self.starting_point_ = self.computeInitialPos(height, sonar_pos)
+            self.sonar_pos_px_ = sonar_pos
+        # sonar_pos = self.sonar_detector.computeVehiclePixelPos(width, height)
+        # self.starting_point_ = self.computeInitialPos(height, sonar_pos)
+
+        self.new_measurement_ = True
             
 
     def changeNetRadiusSrv(self, request):

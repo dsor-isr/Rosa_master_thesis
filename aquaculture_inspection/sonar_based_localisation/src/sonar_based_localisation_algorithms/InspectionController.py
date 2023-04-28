@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 
 import numpy as np
+from farol_msgs.msg import mPidDebug
 
 class InspectionController():
-    def __init__(self, sonar_range, net_radius, k1, k2, dt, real_center) -> None:
+    def __init__(self, sonar_range, net_radius, k1, k2, dt, real_center, desired_distance_, swayNominal) -> None:
         self.net_radius_ = net_radius
         self.sonar_range_ = sonar_range
         self.real_center_ = real_center
+        self.desired_distance_ = desired_distance_
+        self.swayNominal = swayNominal
 
         self.k1_ = k1
         self.k2_ = k2
@@ -48,8 +51,8 @@ class InspectionController():
 
     def computeDesiredSurge(self, desired_distance, distance, last_error, duration, kp_dist, ki_dist, kd_dist):
         # P Controller: u_desired = Kp*(d-d_desired) + ki * e * dt
-        error_dist = -distance + desired_distance
-        error_dist = self.sat(error_dist, -5.0, 2.0)
+        error_p = distance - desired_distance
+        error_dist = self.sat(error_p, -5.0, 5.0)
         
         self.integral_ += error_dist * duration
         if last_error is not None:    
@@ -57,42 +60,36 @@ class InspectionController():
         else:
             derivative = 0
         
-        surge_desired = -kp_dist*error_dist - ki_dist * self.integral_ - kd_dist * derivative
-        Ka = 2.5
+        pTerm = kp_dist * error_dist
+        iTerm = ki_dist * self.integral_
+        dTerm = kd_dist * derivative
+
+        surge_desired = pTerm + iTerm + dTerm
+        Ka = 1/0.1
         # Saturate output
         if surge_desired > 0.3:
+            print("-------AntiWindup")
+            print("ANtes: " + str(self.integral_))
             self.integral_ += Ka*(0.3 - surge_desired) * duration
+            print("Depois: " + str(self.integral_))
             surge_desired = 0.3
         elif surge_desired < -0.3:
             self.integral_ += Ka*(-0.3 - surge_desired) * duration
             surge_desired = -0.3
 
+
+        # Debuging Message
+        self.msg_debug_ = mPidDebug()
+        self.msg_debug_.ref = desired_distance
+        self.msg_debug_.ref_d = 0
+        self.msg_debug_.error = error_p
+        self.msg_debug_.error_saturated = error_dist
+        self.msg_debug_.pTerm = pTerm
+        self.msg_debug_.iTerm = iTerm
+        self.msg_debug_.dTerm = dTerm
+        self.msg_debug_.output = surge_desired
+
         return surge_desired, error_dist
-    
-    def computeDesiredThrustX(self, desired_distance, distance, last_distance, kp_dist, ki_dist):
-        if last_distance is None:
-            last_error = -distance + desired_distance
-        else:
-            last_error = -last_distance + desired_distance
-
-        # P Controller: u_desired = Kp*(d-d_desired)
-        error_dist = -distance + desired_distance
-        
-        # if the error is not far from the net do not give input of surge
-        # This is to fix the "wavy" behaviour
-        # if error_dist > -0.5 and error_dist < 0.3:
-        #     surge_desired = 0
-        # else:
-        thrust_desired = -kp_dist*error_dist - ki_dist * self.dt_ * (error_dist - last_error)
-
-        # Saturate output
-        if thrust_desired > 3:
-            thrust_desired = 3
-        elif thrust_desired < -3:
-            thrust_desired = -3
-
-        return thrust_desired, error_dist
-
 
     """
         Uses Bump Function for smoothness -> to be infinite times derivative (C_infinity)
@@ -135,7 +132,7 @@ class InspectionController():
         return yaw
     
 
-    def computeRealDesiredYaw(self, x, y, yaw):
+    def computeRealDesiredYaw(self, x, y):
         x_c = self.real_center_[0]
         y_c = self.real_center_[1]
 
@@ -150,6 +147,23 @@ class InspectionController():
             yaw_desired = yaw_desired + 360
 
         return yaw_desired
+    
+
+    def computeNominalYawRate(self):
+        perimeter = 2 * np.pi * (self.net_radius_ + self.desired_distance_)
+
+        delta_t = perimeter / self.swayNominal
+        # Inverted sign
+        # Anti Clock Wise is -1
+        # Clock Wise is 1
+        yaw_rate_nominal = -(360/ delta_t)
+        return yaw_rate_nominal
+
+    def resetDistIntegralTerm(self):
+        self.integral_ = 0
+
+    def getDebugMsg(self):
+        return self.msg_debug_
 
     
 
