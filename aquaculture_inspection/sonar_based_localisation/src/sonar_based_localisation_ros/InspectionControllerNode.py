@@ -265,23 +265,30 @@ class InspectionControllerNode():
     @.@ Timer iter callback. Where the magic should happen
     """
     def timerIterCallback(self, event=None):
-        # Give Depth so the vehicle is stable
-        if self.approach_flag_ or (not self.full_inspection_):
-            self.depth_pub_.publish(self.initial_depth_)
-        else:
-            if self.depth_< 6.0:
-                self.heave_pub_.publish(self.heave_velocity_)
-            else:
-                self.depth_pub_.publish(6.0)
-                print("Estável a 6 m de depth")
-                self.stop_ = True
         try:
+            # Give Depth so the vehicle is stable
+            if self.approach_flag_ or (not self.full_inspection_):
+                self.depth_pub_.publish(self.initial_depth_)
+                if abs(self.depth_ - self.initial_depth_) < 0.1:
+                    self.heave_pub_.publish(0.0)
+            else:
+                if self.depth_< 6.0:
+                    self.heave_pub_.publish(self.heave_velocity_)
+                else:
+                    self.depth_pub_.publish(6.0)
+                    print("Estável a 6 m de depth")
+                    self.stop_ = True
             tnow = rospy.get_time()
+
+            # Uncomment this for smoothing function
             if self.last_time_measure_ is not None:
                 yaw_smooth = self.yawSmoothFcn(0.8, False)
                 self.yaw_pub_.publish(yaw_smooth)
                 self.last_yaw_pub_ = yaw_smooth
             
+            # self.yaw_pub_.publish(self.yaw_desired_)
+            # self.last_yaw_pub_ = self.yaw_desired_
+
             if self.last_distance_time_ is None:
                 duration = 0
             else:
@@ -391,10 +398,16 @@ class InspectionControllerNode():
 
             # Now that I have the Desired Yaw, Time to smooth the function
             # Warning: I specified the time step duration, but its quite random ~ 1 second
+            
+            # Uncomment this for smooth function 
             yaw_smoothed = self.yawSmoothFcn(0.8, True)
             self.last_yaw_pub_ = yaw_smoothed
-
             self.yaw_pub_.publish(yaw_smoothed)
+
+            # Uncomment this for without smooth function 
+            # self.last_yaw_pub_ = self.yaw_desired_
+            # self.yaw_pub_.publish(self.yaw_desired_)
+
             self.yaw_ref_error_pub_.publish(yaw_error_wrap)
 
             print("\t\tPublicado: " + str(self.yaw_desired_))

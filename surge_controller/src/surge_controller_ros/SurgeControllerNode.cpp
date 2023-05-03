@@ -208,7 +208,6 @@ void SurgeControllerNode::timerIterCallback(const ros::TimerEvent &event) {
     
     msg.wrench.force.x = tau_u;
     msg.wrench.force.y = 0.0;
-    msg.wrench.force.z = 0.0;
 
     msg.wrench.torque.x = 0.0;
     msg.wrench.torque.y = 0.0;

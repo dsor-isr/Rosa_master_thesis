@@ -1,5 +1,5 @@
 vehicle_stabilizer:
-        references: {'depth': 5.0, 'pitch': 0.0, 'roll': 0.0}
+        references: {'depth': 'null', 'pitch': 0.0, 'roll': 0.0}
         #references: {'depth': 5.0}
 
 open_loop_controller:
@@ -106,16 +106,16 @@ inner_loops_pid:
             # kp: 26.0
             # ki: 1.0
             enable: false
-            kp: 0.0
-            ki: 0.0
-            kff: 0.0
-            max_ref:  1.2  # m/s
-            min_ref: -1.2  # m/s
-            max_err:  0.5  # m/s
-            min_err: -0.5  # m/s  
-            max_out:  81.0 # N
-            min_out: -81.0
-            debug: false
+            # kp: 0.0
+            # ki: 0.0
+            # kff: 0.0
+            # max_ref:  1.2  # m/s
+            # min_ref: -1.2  # m/s
+            # max_err:  0.5  # m/s
+            # min_err: -0.5  # m/s  
+            # max_out:  81.0 # N
+            # min_out: -81.0
+            # debug: false
         # Sway Params
         sway:
             debug: true
@@ -135,20 +135,25 @@ inner_loops_pid:
         # Heave params
         heave:
             debug: true
-            kp: 40.0
+            kp: 20.0
             ki: 5.0
             kff: 0.0
             max_ref:  0.7  # m/s
             min_ref: -0.7  # m/s
-            max_err:  0.2  # m/s
-            min_err: -0.2  # m/s  
-            max_out:  15.0 # N
-            min_out: -15.0
+            max_err:  20.0  # m/s
+            min_err: -20.0  # m/s  
+            max_out:  20.0 # N
+            min_out: -20.0
         # Depth Params
         depth:
-            kp: 40.0 # 5.0
-            ki: 4.0  # 0.2
-            kd: 15.0 # 4.8
+            enable: false
+            kp: 0.0
+            ki: 0.0
+            kd: 0.0
+            kff: 0.0 
+            kff_d: 0.0
+            kff_lin_drag: 0.0
+            kff_quad_drag: 0.0
             max_err:  20.0 # m
             min_err: -20.0 # m  
             max_out:  20.0 # N

@@ -20,10 +20,10 @@ distance_of_outliers: 30
 nmin_points: 50
 
 desired_distance: 2.5
-sway_desired: 0.2
-initial_depth: 5.0
+sway_desired: 0.5
+initial_depth: 1.5
 heave_velocity: 0.008
-full_inspection: False
+full_inspection: True
 
 current_velocity: [0, 0]
 k1: 1.0

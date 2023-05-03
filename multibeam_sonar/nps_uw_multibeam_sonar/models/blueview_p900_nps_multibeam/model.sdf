@@ -30,7 +30,6 @@
           </mesh>
         </geometry>
       </visual>
-
       <sensor name="image_sonar" type="depth">
         <visualize>true</visualize>
         <always_on>true</always_on>
@@ -135,6 +134,6 @@
       <parent>forward_sonar_link</parent>
       <child>forward_sonar_beam_visual_link</child>
     </joint>
-
   </model>
 </sdf>
+

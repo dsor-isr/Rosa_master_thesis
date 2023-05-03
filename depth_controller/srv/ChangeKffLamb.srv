@@ -1,0 +1,4 @@
+float64 kff_lamb
+---
+bool success
+string message

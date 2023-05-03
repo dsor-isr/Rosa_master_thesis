@@ -1,0 +1,24 @@
+# kp: 26.0
+# ki: 1.0
+kp: 20.0
+#kp: 15.0
+ki: 1.2
+kd: 40.0
+kff: 0.0
+kff_lin_drag: 0.0
+kff_quad_drag: 0.0
+kff_lamb: 0.0
+max_ref:  20.0  # m/s
+min_ref: -20.0  # m/s
+max_err:  20.0  # m/s
+min_err: -20.0 # m/s  
+max_out:  100.0 # N
+min_out: -100.0
+debug: true
+
+m: 11.5 #kg
+rho: 1028
+g: 9.8
+V: 0.011054 # volume m^3
+
+Yu_dot: -25.952

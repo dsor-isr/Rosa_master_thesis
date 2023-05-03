@@ -24,10 +24,10 @@ processes:
       args:
             - x:= 0.0
             - y:= 15.0
-            - z:= -5.0
+            - z:= -1.0
             - roll:= 0.0
             - pitch:= 0.0
-            - yaw:= 1.57
+            - yaw:= -1.57
             - mode:= default
       dependencies:
             []
@@ -101,10 +101,19 @@ processes:
       dependencies:
             []
 
-    - name: 'surge_controller' # Set to true to execute default paths (lines, arc, bernoulli)
+    - name: 'surge_controller' 
       launch_on_startup: true
       delay_before_start: 1.0
       cmd: 'roslaunch surge_controller surge_controller.launch'
+      args:
+            - dsor_paths:= true
+      dependencies:
+            []
+
+    - name: 'depth_controller' 
+      launch_on_startup: true
+      delay_before_start: 1.0
+      cmd: 'roslaunch depth_controller depth_controller.launch'
       args:
             - dsor_paths:= true
       dependencies:
