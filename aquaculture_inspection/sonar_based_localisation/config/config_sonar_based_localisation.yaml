@@ -19,11 +19,11 @@ dist_critical: 2.9
 distance_of_outliers: 30
 nmin_points: 50
 
-desired_distance: 2.5
+desired_distance: 5.0
 sway_desired: 0.5
-initial_depth: 1.5
+initial_depth: 2.0
 heave_velocity: 0.008
-full_inspection: True
+full_inspection: False
 
 current_velocity: [0, 0]
 k1: 1.0
@@ -40,6 +40,11 @@ k2: 0.00444
 kp_dist: 0.15
 ki_dist: 0.0001
 kd_dist: 0.0
+
+# With Currents
+# kp_dist: 0.2
+# ki_dist: 0.005
+# kd_dist: 0.0
 
 pos_center: [30, 0]
 utm_pos_inertial: [4290794.43, 491936.56]

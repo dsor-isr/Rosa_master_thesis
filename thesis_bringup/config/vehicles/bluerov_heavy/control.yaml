@@ -1,5 +1,5 @@
 vehicle_stabilizer:
-        references: {'depth': 'null', 'pitch': 0.0, 'roll': 0.0}
+        references: {'depth': 1.0, 'pitch': 0.0, 'roll': 0.0}
         #references: {'depth': 5.0}
 
 open_loop_controller:
@@ -121,7 +121,8 @@ inner_loops_pid:
             debug: true
             # # No delay on the thrusters
             kp: 50.0 
-            ki: 0.42 
+            ki: 0.42 # sem correntes
+            #ki: 7.0 # com correntes 
             kff: 48.0
             # kp: 15.0
             # ki: 0.42
@@ -137,19 +138,22 @@ inner_loops_pid:
             debug: true
             kp: 20.0
             ki: 5.0
-            kff: 0.0
-            max_ref:  0.7  # m/s
-            min_ref: -0.7  # m/s
-            max_err:  20.0  # m/s
-            min_err: -20.0  # m/s  
-            max_out:  20.0 # N
-            min_out: -20.0
+            kff: 80.0
+            max_ref:  1.2  # m/s
+            min_ref: -1.2  # m/s
+            max_err:  0.5  # m/s
+            min_err: -0.5  # m/s  
+            max_out:  81.0 # N
+            min_out: -81.0
         # Depth Params
         depth:
             enable: false
-            kp: 0.0
-            ki: 0.0
-            kd: 0.0
+            kp: 20.0
+            ki: 1.0
+            kd: 40.0
+            # kp: 0.0
+            # ki: 0.0
+            # kd: 0.0
             kff: 0.0 
             kff_d: 0.0
             kff_lin_drag: 0.0

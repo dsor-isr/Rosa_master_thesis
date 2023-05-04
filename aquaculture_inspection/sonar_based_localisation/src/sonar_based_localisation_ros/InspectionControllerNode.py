@@ -71,6 +71,7 @@ class InspectionControllerNode():
         
         self.approach_flag_ = True # Flag to announce  the approaching phase
         self.stop_ = False # Flag to stop the movement of the vehicle
+        self.descending_flag_ = False # Flag to stop the descending movement of the vehicle
 
         # Yaw Ref Smooth Function
         self.yaw_desired_ = None
@@ -92,6 +93,8 @@ class InspectionControllerNode():
 
         self.last_distance_time_ = None
         self.last_error_ = None
+        
+        self.first_detection_ = False
     """
     @.@ Member Helper function to set up subscribers; 
     """
@@ -240,8 +243,11 @@ class InspectionControllerNode():
     
     
     def approachPhase(self):
-        if abs(self.distance_net_-self.desired_distance_) < 0.1 and self.surge_ < 0.01:
+        if abs(self.distance_net_-self.desired_distance_) < 0.2 and self.surge_ < 0.01:
             self.approach_flag_ = False
+    
+    def descendingPhase(self):
+        pass
     
     def computeRealDistance(self, yaw):
         R = self.computeRotationMatrix(yaw)
@@ -266,6 +272,10 @@ class InspectionControllerNode():
     """
     def timerIterCallback(self, event=None):
         try:
+            if self.first_detection_ is False:
+                self.sway_pub_.publish(0.0)
+                self.surge_pub_.publish(0.0)
+            
             # Give Depth so the vehicle is stable
             if self.approach_flag_ or (not self.full_inspection_):
                 self.depth_pub_.publish(self.initial_depth_)
@@ -331,6 +341,8 @@ class InspectionControllerNode():
 
     # Rate of receiving is about 1 second
     def detection_info_callback(self, data):
+        self.first_detection_ = True
+
         #Circle Detection Data
         self.center_pixels_ = data.center_pixels
         self.center_inertial_ = data.center_inertial

@@ -24,16 +24,16 @@ processes:
       args:
             - x:= 0.0
             - y:= 15.0
-            - z:= -1.0
+            - z:= -2.0
             - roll:= 0.0
             - pitch:= 0.0
-            - yaw:= -1.57
+            - yaw:= 1.57
             - mode:= default
       dependencies:
             []
     
     - name: 'bags' # Set to true to automatically save all rostopics in rosbags
-      launch_on_startup: false
+      launch_on_startup: true
       delay_before_start: 1.0
       cmd: 'roslaunch farol_bringup bags.launch'
       args:
@@ -110,11 +110,11 @@ processes:
       dependencies:
             []
 
-    - name: 'depth_controller' 
-      launch_on_startup: true
-      delay_before_start: 1.0
-      cmd: 'roslaunch depth_controller depth_controller.launch'
-      args:
-            - dsor_paths:= true
-      dependencies:
-            []
+#     - name: 'depth_controller' 
+#       launch_on_startup: true
+#       delay_before_start: 1.0
+#       cmd: 'roslaunch depth_controller depth_controller.launch'
+#       args:
+#             - dsor_paths:= true
+#       dependencies:
+#             []

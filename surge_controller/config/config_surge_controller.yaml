@@ -1,8 +1,6 @@
-# kp: 26.0
-# ki: 1.0
 kp: 40.0
-#kp: 15.0
-ki: 0.42
+ki: 0.42 # sem correntes
+#ki: 5.0 #com correntes
 kff: 48.0
 kff_lin_drag: 0.0
 kff_quad_drag: 0.0
